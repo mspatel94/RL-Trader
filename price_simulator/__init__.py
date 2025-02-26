@@ -4,6 +4,6 @@ Stock Price Simulator Package
 This package provides tools for simulating stock price movements and options pricing.
 """
 
-from .price_simulator import StockPriceSimulator
+from .price_simulator import PriceSimulator
 
-__all__ = ['StockPriceSimulator']
+__all__ = ['PriceSimulator']
