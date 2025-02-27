@@ -11,12 +11,17 @@ class Portfolio:
     
     def sell_stock(self, stock, quantity):
         raise NotImplementedError
+
+    # portfolio_option_count = 0 -> buy -> buy_open -> count > 0
+    # portfolio_option_count > 0 -> buy -> buy_close -> count = 0
+    # portfolio_option_count = 0 -> sell -> sell_open -> count < 0
+    # portfolio_option_count < 0 -> sell -> sell_close -> count = 0
     
     def buy_to_close_option(self, option, quantity):
         raise NotImplementedError
 
     #Buy
-    def sell_option(self, option, quantity):
+    def sell_option_to_open(self, option, quantity):
         raise NotImplementedError
 
     
@@ -27,6 +32,7 @@ class PortfolioState:
         self.timestamps = []
     
     def add_state(self, state:Portfolio, timestamp):
-        // TODO(): With some probability if current price is ITM, with some random prob we get option assigned 
+        # TODO(): With some probability if current price is ITM, with some random prob we get option assigned 
+        # WE ASSUME EUROPEAN STYLE 
         self.timestamps.append(timestamp)
         self.history.append(state)
