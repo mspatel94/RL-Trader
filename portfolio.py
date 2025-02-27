@@ -6,6 +6,7 @@ class Portfolio:
         self.stocks = {}
     
     def buy_stock(self, stock, quantity):
+        //TODO(Farzad): start tracking prices in a data structure by calling price simulator
         raise NotImplementedError
     
     def sell_stock(self, stock, quantity):
