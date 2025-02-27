@@ -22,6 +22,6 @@ class PortfolioState:
         self.history = []
         self.timestamps = []
     
-    def add_state(self, state, timestamp):
+    def add_state(self, state:Portfolio, timestamp):
         self.timestamps.append(timestamp)
         self.history.append(state)

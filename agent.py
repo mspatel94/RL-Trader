@@ -1,6 +1,6 @@
 from asset import Stock
 from typing import List
-from portfolio import Portfolio
+from portfolio import Portfolio, PortfolioState
 from policy_interface import Policy
 
 
@@ -13,6 +13,7 @@ class Agent:
     def __init__(self, cash_amount, stock_tickers:List[Stock], stock_holdings:List[int], policies:List[Policy], horizon:int):
         self.cash = cash_amount
         self.portfolios = [self._initialize_portfolio(cash_amount, stock_tickers, stock_holdings) for _ in range(len(policies))]
+        self.portfolios_history = [PortfolioState() for i in range(len(policies))]
         self.policies = policies
         self.rewards = [[] for _ in range(len(policies))]
         self.time_step = 0
@@ -26,8 +27,10 @@ class Agent:
         return portfolio
 
     def step(self)->List[float]:
-        
-        actions = [self.policies[i].get_action(self.portfolio[i].get_state()) for i in range(len(self.policies))]
+        #update states
+        for i in range(len(self.policies)):
+            self.portfolios_history[i].add_state(self.portfolios[i], self.time_step)
+        actions = [self.policies[i].get_action(self.portfolios_history[i].get_state()) for i in range(len(self.policies))]
 
         for i in range(len(self.policies)):
             # buy_quantity, sell_quantity
@@ -39,7 +42,7 @@ class Agent:
             self.portfolios[i].buy_option('dummy_place_holder', buy_quantity)
             true_reward = self.portfolios[i].get_value() - true_reward
             self.rewards[i].append(true_reward)
-        
+            
         self.time_step += 1
     
     def run(self):
