@@ -6,7 +6,7 @@ class Portfolio:
         self.stocks = [] # Stock Object
         self.options = [] # Options Object
 
-    def get_portfolio_value():
+    def get_portfolio_value(timestamp):
         raise NonImplementedError
     
     def buy_stock(self, stock, quantity):
