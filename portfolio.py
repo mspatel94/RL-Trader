@@ -6,7 +6,8 @@ class Portfolio:
         self.stocks = [] # Stock Object
         self.options = [] # Options Object
 
-    
+    def get_portfolio_value():
+        raise NonImplementedError
     
     def buy_stock(self, stock, quantity):
         //TODO(Farzad): start tracking prices in a data structure by calling price simulator
