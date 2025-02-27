@@ -1,3 +1,5 @@
+#TODO: Add random variable that makes us sell the stock at each time step
+
 class Portfolio:
     def __init__(self, cash_amount):
         self.cash = cash_amount
