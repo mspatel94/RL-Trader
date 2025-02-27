@@ -24,5 +24,6 @@ class PortfolioState:
         self.timestamps = []
     
     def add_state(self, state:Portfolio, timestamp):
+        // TODO(): With some probability if current price is ITM, with some random prob we get option assigned 
         self.timestamps.append(timestamp)
         self.history.append(state)
