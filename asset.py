@@ -20,6 +20,7 @@ class Stock:
         self.symbol = symbol
         self.price = price
         self.history = history
+        self.future_prices = []
         //TODO(maharshi): remove mu and sigma
         self.mu = mu
         self.sigma = sigma
