@@ -12,11 +12,14 @@ class Portfolio:
     def sell_stock(self, stock, quantity):
         raise NotImplementedError
     
-    def buy_option(self, option, quantity):
+    def buy_to_close_option(self, option, quantity):
         raise NotImplementedError
-    
+
+    #Buy
     def sell_option(self, option, quantity):
         raise NotImplementedError
+
+    
 
 class PortfolioState:
     def __init__(self):
