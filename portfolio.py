@@ -3,7 +3,10 @@
 class Portfolio:
     def __init__(self, cash_amount):
         self.cash = cash_amount
-        self.stocks = {}
+        self.stocks = [] # Stock Object
+        self.options = [] # Options Object
+
+    
     
     def buy_stock(self, stock, quantity):
         //TODO(Farzad): start tracking prices in a data structure by calling price simulator
