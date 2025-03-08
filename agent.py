@@ -48,3 +48,14 @@ class Agent:
     def run(self):
         while self.time_step < self.horizon:
             self.step()
+
+class AgentState:
+    def __init__(self):
+        self.actions = []
+        self.history = []
+        self.rewards = []
+    
+    def update_state(self, action, portolio:Portfolio, reward):
+        self.actions.append(action)
+        self.history.append(portolio)
+        self.rewards.append(reward)
