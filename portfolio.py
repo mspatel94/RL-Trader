@@ -1,5 +1,23 @@
 #TODO: Add random variable that makes us sell the stock at each time step
 
+
+from asset import Stock, Option
+
+
+class StockHolding:
+    def __init__(self, stock:Stock, quantity:int, cost_basis:float, purchase_date:str):
+        self.stock = stock
+        self.quantity = quantity
+        self.cost_basis = cost_basis
+        self.purchase_date = purchase_date
+
+class OptionHolding:
+    def __init__(self, option:Option, quantity:int, cost_basis:float, purchase_date:str):
+        self.option = option
+        self.quantity = quantity
+        self.cost_basis = cost_basis
+        self.purchase_date = purchase_date
+
 class Portfolio:
     def __init__(self, cash_amount):
         self.cash = cash_amount

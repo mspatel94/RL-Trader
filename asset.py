@@ -21,9 +21,8 @@ class Stock:
         self.price = price
         self.history = history
         self.future_prices = []
-        //TODO(maharshi): remove mu and sigma
-        self.mu = mu
-        self.sigma = sigma
+        self._mu = mu
+        self._sigma = sigma
         self.risk_free_rate = risk_free_rate
 
 #TODO(farzad): add relevant bits for options
