@@ -26,7 +26,7 @@ class Agent:
         
         return portfolio
 
-    def step(self)->List[float]:
+    def step(self):
         #update states
         for i in range(len(self.policies)):
             self.portfolios_history[i].add_state(self.portfolios[i], self.time_step)
@@ -40,6 +40,7 @@ class Agent:
             true_reward = self.portfolios[i].get_value()
             self.portfolios[i].sell_option('dummy_place_holder', sell_quantity)
             self.portfolios[i].buy_option('dummy_place_holder', buy_quantity)
+            self.portfolios[i].step()
             true_reward = self.portfolios[i].get_value() - true_reward
             self.rewards[i].append(true_reward)
             

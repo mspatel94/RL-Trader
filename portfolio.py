@@ -18,11 +18,18 @@ class OptionHolding:
         self.cost_basis = cost_basis
         self.purchase_date = purchase_date
 
+
+#TODO(Farzad):when interacting with simulator, only keep last n_days of price for stock, option object's history parameter
 class Portfolio:
     def __init__(self, cash_amount):
         self.cash = cash_amount
-        self.stocks = [] # Stock Object
-        self.options = [] # Options Object
+        self.stocks_holdings = [] # Stock Object
+        self.options_holdings = [] # Options Object
+        self.current_state = PortfolioState()
+    
+    #TODO(Maharshi): Implement the step function for the agent to take actions
+    def step(self, action:[]):
+        return self.current_state
 
     def get_portfolio_value(timestamp):
         raise NonImplementedError
@@ -57,4 +64,4 @@ class PortfolioState:
         # TODO(): With some probability if current price is ITM, with some random prob we get option assigned 
         # WE ASSUME EUROPEAN STYLE 
         self.timestamps.append(timestamp)
-        self.history.append(state)
+        self.history.append(state.deepcopy())
