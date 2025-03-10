@@ -85,6 +85,9 @@ class PriceSimulator:
             
         return pd.DataFrame({'Date': self.dates, 'Price': self.simulated_prices.values})
     
+    def get_price_history(self, timestep:int):
+        return self.simulated_prices[:timestep+1]
+    
     def plot_simulation(self, title="Stock Price Simulation", show_individual_paths=False):
         """
         Plot the simulated stock price paths.
