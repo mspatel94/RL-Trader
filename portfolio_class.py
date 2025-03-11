@@ -76,7 +76,8 @@ class Portfolio:
             "Cash": self.cash,
             "Stock Value": stock_value,
             "Options Value": options_value,
-            "Total Value": total_value
+            "Total Value": total_value,
+            "Stock Price": stock_price
         }
         
         return total_value
@@ -400,8 +401,23 @@ class Portfolio:
             "Stock Value": value_details["Stock Value"],
             "Options Value": value_details["Options Value"],
             "Total Value": value_details["Total Value"],
+            "Stock Quantity": stock_quantity,
             "Holdings": holdings
         }
+    
+    def get_value_history(self, asset_id:str):
+        """
+        Get the history of the value of a specific asset in the portfolio.
+        
+        Parameters:
+        asset_id (str): The asset ID to get the value history for
+        
+        Returns:
+        dict: A dictionary of date to value for the asset
+        """
+
+        df = self.get_portfolio_value_history_df()
+        return df[df['Asset'] == asset_id]
     
     def get_transaction_history_df(self):
         """
@@ -426,7 +442,8 @@ class Portfolio:
                 "Cash": values["Cash"],
                 "Stock Value": values["Stock Value"],
                 "Options Value": values["Options Value"],
-                "Total Value": values["Total Value"]
+                "Total Value": values["Total Value"],
+                "Stock Price": values["Stock Price"]
             })
         
         return pd.DataFrame(history_list)
