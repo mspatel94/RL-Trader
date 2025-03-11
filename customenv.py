@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import List, Dict, Tuple, Optional, Any
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from price_simulator import PriceSimulator
 from portfolio_class import Portfolio
@@ -61,6 +63,14 @@ class StockTradingEnv(gym.Env):
         self.history_length = history_length
         self.render_mode = render_mode
         self.seed_value = seed
+        self.history = {
+                    'dates': [],
+                    'portfolio_values': [],
+                    'cash_values': [],
+                    'stock_values': [],
+                    'options_values': [],
+                    'stock_prices': []
+                }
 
         # Initialize environment components
         self._initialize_simulator(price_simulator)
@@ -157,6 +167,15 @@ class StockTradingEnv(gym.Env):
             "step": self.current_step,
             "date": self.current_date
         }
+
+        self.history = {
+                    'dates': [],
+                    'portfolio_values': [],
+                    'cash_values': [],
+                    'stock_values': [],
+                    'options_values': [],
+                    'stock_prices': []
+                }
         
         return observation, info
     
@@ -342,27 +361,32 @@ class StockTradingEnv(gym.Env):
         Returns:
             Rendering of the environment state
         """
-        if self.render_mode == "human":
-            # Get portfolio summary
-            portfolio_summary = self.portfolio.get_portfolio_summary(
+        portfolio_summary = self.portfolio.get_portfolio_summary(
                 self.price_simulator, 
                 self.current_date
             )
+        current_price = self.price_simulator.simulated_prices[self.history_length + self.current_step]
             
-            # Current stock price
-            current_price = self.price_simulator.simulated_prices[self.history_length + self.current_step]
-            
-            # Print summary
-            print(f"\n===== Step {self.current_step} | Date: {self.current_date} =====")
-            print(f"Stock Price: ${current_price:.2f}")
-            print(f"Cash: ${portfolio_summary['Cash']:.2f}")
-            print(f"Stock Value: ${portfolio_summary['Stock Value']:.2f}")
-            print(f"Stock Quantity: {portfolio_summary['Stock Quantity']}")
-            print(f"Options Value: ${portfolio_summary['Options Value']:.2f}")
-            print(f"Total Portfolio Value: ${portfolio_summary['Total Value']:.2f}")
-            print(f"Return since start: {portfolio_summary['Total Value']/self.initial_portfolio_value - 1:.2%}")
-            print("=" * 50)
-    
+        # Print summary
+        print(f"\n===== Step {self.current_step} | Date: {self.current_date} =====")
+        print(f"Stock Price: ${current_price:.2f}")
+        print(f"Cash: ${portfolio_summary['Cash']:.2f}")
+        print(f"Stock Value: ${portfolio_summary['Stock Value']:.2f}")
+        print(f"Stock Quantity: {portfolio_summary['Stock Quantity']}")
+        print(f"Options Value: ${portfolio_summary['Options Value']:.2f}")
+        print(f"Total Portfolio Value: ${portfolio_summary['Total Value']:.2f}")
+        print(f"Return since start: {portfolio_summary['Total Value']/self.initial_portfolio_value - 1:.2%}")
+        print("=" * 50)
+        print(len(self.history))
+        if self.current_date not in self.history['dates']:
+            self.history['dates'].append(self.current_date)
+            self.history['portfolio_values'].append(portfolio_summary['Total Value'])
+            self.history['cash_values'].append(portfolio_summary['Cash'])
+            self.history['stock_values'].append(portfolio_summary['Stock Value'])
+            self.history['options_values'].append(portfolio_summary['Options Value'])
+            self.history['stock_prices'].append(current_price)
+        return self.history
+
     def close(self):
         """
         Clean up environment resources.
