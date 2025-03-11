@@ -69,7 +69,7 @@ class PriceSimulator:
         
         # Create dates (assuming we start from today)
         start_date = datetime.now()
-        self.dates = [start_date + timedelta(days=i) for i in range(days + 1)]
+        self.dates = [(start_date + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days + 1)]
         
         # Store the mean path as the simulated price series
         self.simulated_prices = pd.Series(prices.mean(axis=1), index=self.dates)
