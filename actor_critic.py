@@ -1,154 +1,166 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
+import gymnasium as gym
 import numpy as np
-from policy_interface import Policy
-from portfolio import PortfolioState
+import torch
+import time
+from customenv import StockTradingEnv
+from actor_critic_model import ActorCritic
 
-class ActorNetwork(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_size=64):
-        super(ActorNetwork, self).__init__()
-        self.network = nn.Sequential(
-            nn.Linear(state_dim, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, action_dim * 2),  # For buy and sell quantities
-        )
-        
-    def forward(self, state):
-        output = self.network(state)
-        # Split output into buy and sell actions
-        buy_sell = output.reshape(-1, 2)
-        # Apply softplus to ensure positive quantities
-        return torch.nn.functional.softplus(buy_sell)
-
-class CriticNetwork(nn.Module):
-    def __init__(self, state_dim, hidden_size=64):
-        super(CriticNetwork, self).__init__()
-        self.network = nn.Sequential(
-            nn.Linear(state_dim, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1)  # Outputs a single value
-        )
-        
-    def forward(self, state):
-        return self.network(state)
-
-class ActorCriticPolicy(Policy):
-    def __init__(self, state_dim=10, action_dim=1, lr=0.001, gamma=0.99):
-        self.actor = ActorNetwork(state_dim, action_dim)
-        self.critic = CriticNetwork(state_dim)
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=lr)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=lr)
-        self.gamma = gamma
-        self.states = []
-        self.actions = []
-        self.rewards = []
-        self.next_states = []
-        self.dones = []
-        
-    def _extract_features(self, portfolio_state):
-        """Extract relevant features from portfolio state."""
-        if len(portfolio_state.history) == 0:
-            # Return default values if history is empty
-            return torch.zeros(10)
-        
-        # Get the latest portfolio
-        portfolio = portfolio_state.history[-1]
-        
-        # For simplicity, we'll just use a few basic features:
-        # - Current cash
-        # - Current total value
-        # - Some price history (if available)
-        features = [portfolio.cash]
-        
-        # Add placeholder for portfolio value
-        features.append(portfolio.get_value() if hasattr(portfolio, 'get_value') else 0)
-        
-        # Pad with zeros to reach state_dim
-        while len(features) < 10:
-            features.append(0)
-            
-        return torch.FloatTensor(features)
+def train_actor_critic(env, model, num_episodes=1000, max_steps=1000):
+    """
+    Train the Actor-Critic model.
     
-    def get_action(self, portfolio_state):
-        """
-        Implement the policy's action selection.
-        Returns a tuple (buy_quantity, sell_quantity)
-        """
-        state_tensor = self._extract_features(portfolio_state)
+    Args:
+        env: The environment to train in
+        model: The Actor-Critic model
+        num_episodes: Number of episodes to train for
+        max_steps: Maximum steps per episode
         
-        # Use the actor to predict actions
-        with torch.no_grad():
-            actions = self.actor(state_tensor)
-        
-        # Convert to numpy for easier handling
-        buy_quantity, sell_quantity = actions[0].numpy()
-        
-        # Round to whole numbers for simplicity
-        buy_quantity = round(buy_quantity)
-        sell_quantity = round(sell_quantity)
-        
-        # Store state and action for training
-        self.states.append(state_tensor)
-        self.actions.append(torch.FloatTensor([buy_quantity, sell_quantity]))
-        
-        return buy_quantity, sell_quantity
+    Returns:
+        list: Episode rewards
+    """
+    episode_rewards = []
     
-    def update(self, reward, next_state, done=False):
-        """
-        Update the policy with the observed reward and next state.
-        Should be called after get_action.
-        """
-        self.rewards.append(reward)
-        self.next_states.append(self._extract_features(next_state))
-        self.dones.append(done)
+    for episode in range(num_episodes):
+        state, info = env.reset()
+        episode_reward = 0
         
-        # If episode is done, train on collected data
-        if done:
-            self._train()
+        for step in range(max_steps):
+            # Get action from model
+            action = model.get_action(state)
             
-    def _train(self):
-        """Train the actor and critic networks using collected trajectories."""
-        if len(self.states) == 0:
-            return
+            # Take action in environment
+            next_state, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             
-        states = torch.stack(self.states)
-        actions = torch.stack(self.actions)
-        rewards = torch.FloatTensor(self.rewards)
-        next_states = torch.stack(self.next_states)
-        dones = torch.FloatTensor(self.dones)
-        
-        # Calculate returns and advantages
-        with torch.no_grad():
-            next_values = self.critic(next_states).squeeze()
-            target_values = rewards + self.gamma * next_values * (1 - dones)
+            # Store transition
+            model.store_transition(state, action, reward, next_state, done)
             
-        # Update critic
-        current_values = self.critic(states).squeeze()
-        critic_loss = nn.MSELoss()(current_values, target_values)
+            # Update state and reward
+            state = next_state
+            episode_reward += reward
+            
+            # Train model after each step (online learning)
+            model.update_policy()
+            
+            # Render environment every 10 steps
+            if step % 10 == 0:
+                env.render()
+                time.sleep(0.1)  # Add a small delay to make rendering visible
+                
+            if done:
+                break
         
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        self.critic_optimizer.step()
+        episode_rewards.append(episode_reward)
         
-        # Calculate advantage
-        advantages = target_values - current_values.detach()
+        # Print progress
+        if (episode + 1) % 10 == 0:
+            avg_reward = np.mean(episode_rewards[-10:])
+            print(f"Episode {episode+1}/{num_episodes}, Avg Reward: {avg_reward:.2f}, Portfolio Value: {info['portfolio_value']:.2f}")
+    
+    return episode_rewards
+
+def evaluate_actor_critic(env, model, num_episodes=10, render=True):
+    """
+    Evaluate the trained Actor-Critic model.
+    
+    Args:
+        env: The environment to evaluate in
+        model: The trained Actor-Critic model
+        num_episodes: Number of episodes to evaluate for
+        render: Whether to render the environment
         
-        # Update actor
-        log_probs = -0.5 * ((actions - self.actor(states)) ** 2).sum(dim=1)
-        actor_loss = -(log_probs * advantages).mean()
+    Returns:
+        float: Average episode reward
+    """
+    episode_rewards = []
+    portfolio_returns = []
+    
+    for episode in range(num_episodes):
+        state, info = env.reset()
+        episode_reward = 0
+        done = False
+        step = 0
         
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        self.actor_optimizer.step()
+        print(f"\nStarting evaluation episode {episode+1}/{num_episodes}")
+        print(f"Initial portfolio value: {info['portfolio_value']:.2f}")
         
-        # Reset trajectories
-        self.states = []
-        self.actions = []
-        self.rewards = []
-        self.next_states = []
-        self.dones = [] 
+        while not done and step < 1000:
+            # Get action from model (deterministic)
+            with torch.no_grad():
+                action = model.get_action(state)
+            
+            # Take action in environment
+            next_state, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+            
+            # Update state and reward
+            state = next_state
+            episode_reward += reward
+            step += 1
+            
+            # Render environment every 10 steps
+            if render and step % 10 == 0:
+                print(f"Step {step}, Action: {info['action_type']}, Amount: {info['action_amount']:.2f}, Reward: {reward:.4f}")
+                env.render()
+        
+        episode_rewards.append(episode_reward)
+        portfolio_returns.append(info["portfolio_return"])
+        print(f"Evaluation Episode {episode+1}/{num_episodes}, Reward: {episode_reward:.2f}, Portfolio Return: {info['portfolio_return']:.2%}")
+        print(f"Final portfolio value: {info['portfolio_value']:.2f}")
+    
+    avg_reward = np.mean(episode_rewards)
+    avg_return = np.mean(portfolio_returns)
+    print(f"Average Evaluation Reward: {avg_reward:.2f}")
+    print(f"Average Portfolio Return: {avg_return:.2%}")
+    
+    return avg_reward
+
+if __name__ == "__main__":
+    # Environment parameters
+    stock_ticker = 'AAPL'
+    starting_price = 100
+    mu = 0.1
+    sigma = 0.2
+    risk_free_rate = 0.01
+    horizon = 1000
+    history_length = 30
+    
+    # Create environment
+    env = StockTradingEnv(
+        initial_cash=10000.0,
+        initial_stock_price=starting_price,
+        mu=mu,
+        sigma=sigma,
+        risk_free_rate=risk_free_rate,
+        max_steps=horizon,
+        history_length=history_length,
+        render_mode='human'
+    )
+    
+    # Calculate state dimension
+    # Price history + portfolio info + holdings + returns
+    state_dim = history_length + 4 + 1 + history_length
+    
+    # Action dimension: [action_type, amount]
+    action_dim = 2
+    
+    # Create Actor-Critic model
+    model = ActorCritic(
+        state_dim=state_dim,
+        action_dim=action_dim,
+        hidden_dim=128,
+        actor_lr=3e-4,
+        critic_lr=1e-3,
+        gamma=0.99
+    )
+    
+    # Train model
+    print("Training Actor-Critic model...")
+    train_actor_critic(env, model, num_episodes=25, max_steps=horizon)
+    
+    # Save model
+    model.save("actor_critic_model.pt")
+    
+    # Evaluate model
+    print("\nEvaluating Actor-Critic model...")
+    evaluate_actor_critic(env, model, num_episodes=5, render=True)
