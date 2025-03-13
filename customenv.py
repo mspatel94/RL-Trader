@@ -377,14 +377,13 @@ class StockTradingEnv(gym.Env):
         print(f"Total Portfolio Value: ${portfolio_summary['Total Value']:.2f}")
         print(f"Return since start: {portfolio_summary['Total Value']/self.initial_portfolio_value - 1:.2%}")
         print("=" * 50)
-        print(len(self.history))
-        if self.current_date not in self.history['dates']:
-            self.history['dates'].append(self.current_date)
-            self.history['portfolio_values'].append(portfolio_summary['Total Value'])
-            self.history['cash_values'].append(portfolio_summary['Cash'])
-            self.history['stock_values'].append(portfolio_summary['Stock Value'])
-            self.history['options_values'].append(portfolio_summary['Options Value'])
-            self.history['stock_prices'].append(current_price)
+
+        self.history['dates'].append(self.current_date)
+        self.history['portfolio_values'].append(portfolio_summary['Total Value'])
+        self.history['cash_values'].append(portfolio_summary['Cash'])
+        self.history['stock_values'].append(portfolio_summary['Stock Value'])
+        self.history['options_values'].append(portfolio_summary['Options Value'])
+        self.history['stock_prices'].append(current_price)
         return self.history
 
     def close(self):
