@@ -50,10 +50,10 @@ def compare_policies(steps=1000):
     train_env_params = {
         'initial_cash': 10000.0,
         'initial_stock_price': 100,
-        'mu': 0.1,
-        'sigma': 0.2,
+        'mu': 0.2,
+        'sigma': 0.5,
         'risk_free_rate': 0.01,
-        'max_steps': 252,  # One trading year
+        'max_steps': 1000,  # One trading year
         'history_length': 30
     }
 
@@ -63,10 +63,9 @@ def compare_policies(steps=1000):
         'mu': 0.15,
         'sigma': 0.25,
         'risk_free_rate': 0.01,
-        'max_steps': 252,  # One trading year
+        'max_steps': 500,  # One trading year
         'history_length': 30
     }
-
 
     
     # Create environment
@@ -107,19 +106,31 @@ def compare_policies(steps=1000):
         'Random': random_policy
     }
 
-    test_env = StockTradingEnv(**test_env_params)
     
     results = {}
     for name, policy in policies.items():
-        mean_return, std_return = evaluate_policy(test_env, policy, num_episodes=10)
+        test_env = StockTradingEnv(**test_env_params)
+        mean_return, std_return = evaluate_policy(test_env, policy, num_episodes=100)
         results[name] = {'mean': mean_return, 'std': std_return}
 
+    test_env = StockTradingEnv(**test_env_params)
+    obs = test_env.reset()
+    obs=obs[0]
+    for i in range(500):
+        action, _state = ppo.predict(obs, deterministic=True)
+        obs, reward, terminated, truncated, info = test_env.step(action)
+        if terminated or truncated:
+            break
+        test_env.render()
     
 
     plt.figure(figsize=(16, 8), dpi=150) 
     env_states = test_env.render()
+    print(env_states)
     env_states = pd.DataFrame(env_states)
     print(env_states)
+    env_states['portfolio_values'] = env_states['portfolio_values']/100
+    
     # using plot method to plot open prices. 
     # in plot method we set the label and color of the curve. 
     env_states['stock_prices'].plot(label='stock_price', color='orange') 
