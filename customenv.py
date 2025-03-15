@@ -146,7 +146,10 @@ class StockTradingEnv(gym.Env):
         # Generate start date (using the history length offset to have enough history)
         self.start_date = datetime.now()
         # self.start_date = self.start_date.strftime("%Y-%m-%d")
-        self.current_date = (self.start_date + timedelta(days=self.history_length)).strftime("%Y-%m-%d")
+        self.current_date = self.current_date = (
+    self.start_date 
+    + timedelta(days=self.history_length + self.current_step)
+).strftime("%Y-%m-%d")
         
         # Initialize portfolio
         self.portfolio = Portfolio(self.initial_cash)
@@ -313,7 +316,10 @@ class StockTradingEnv(gym.Env):
         # Advance time step
         self.current_step += 1
         # self.current_date += timedelta(days=1)
-        self.current_date = (self.start_date + timedelta(days=self.current_step)).strftime("%Y-%m-%d")
+        self.current_date = (
+    self.start_date 
+    + timedelta(days=self.history_length + self.current_step)
+).strftime("%Y-%m-%d")
 
         
         # Get portfolio value after action
