@@ -37,10 +37,11 @@ class Portfolio:
         
         # Get the stock price for the current date
         try:
-            date_index = price_simulator.dates.index(current_date)
+            date_str = current_date.strftime("%Y-%m-%d")
+            date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
-            raise ValueError(f"Date {current_date} not found in price simulator")
+            raise ValueError(f"Date {date_str} not found in price simulator")
         
         # Calculate stock value
         stock_value = self.current_holdings.get("STOCK", 0) * stock_price
@@ -62,9 +63,19 @@ class Portfolio:
                 # Calculate option price
                 strike = float(strike)
                 if option_type == "CALL":
-                    option_price = price_simulator.black_scholes_call(strike, days_to_maturity)
+                    option_price = price_simulator.black_scholes_call(
+                        strike, 
+                        days_to_maturity, 
+                        current_price=stock_price, 
+                        current_date=current_date
+                    )
                 else:  # PUT
-                    option_price = price_simulator.black_scholes_put(strike, days_to_maturity)
+                    option_price = price_simulator.black_scholes_put(
+                        strike, 
+                        days_to_maturity, 
+                        current_price=stock_price, 
+                        current_date=current_date
+                    )
                 
                 options_value += quantity * option_price
         
@@ -116,10 +127,11 @@ class Portfolio:
             
         # Get the stock price for the current date
         try:
-            date_index = price_simulator.dates.index(current_date)
+            date_str = current_date.strftime("%Y-%m-%d")
+            date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
-            raise ValueError(f"Date {current_date} not found in price simulator")
+            raise ValueError(f"Date {date_str} not found in price simulator")
         
         # Calculate the cost
         cost = quantity * stock_price
@@ -171,10 +183,11 @@ class Portfolio:
         
         # Get the stock price for the current date
         try:
-            date_index = price_simulator.dates.index(current_date)
+            date_str = current_date.strftime("%Y-%m-%d")
+            date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
-            raise ValueError(f"Date {current_date} not found in price simulator")
+            raise ValueError(f"Date {date_str} not found in price simulator")
         
         # Calculate the proceeds
         proceeds = quantity * stock_price
@@ -226,11 +239,29 @@ class Portfolio:
         if days_to_maturity <= 0:
             raise ValueError("Option maturity must be in the future")
         
+        # Get the current stock price
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            date_index = price_simulator.dates.index(date_str)
+            stock_price = price_simulator.simulated_prices[date_index]
+        except (ValueError, IndexError):
+            raise ValueError(f"Date {date_str} not found in price simulator")
+        
         # Calculate option price
         if option_type == "CALL":
-            option_price = price_simulator.black_scholes_call(strike, days_to_maturity)
+            option_price = price_simulator.black_scholes_call(
+                strike, 
+                days_to_maturity, 
+                current_price=stock_price, 
+                current_date=current_date
+            )
         else:  # PUT
-            option_price = price_simulator.black_scholes_put(strike, days_to_maturity)
+            option_price = price_simulator.black_scholes_put(
+                strike, 
+                days_to_maturity, 
+                current_price=stock_price, 
+                current_date=current_date
+            )
         
         # Calculate the cost (assuming 1 contract = 1 shares)
         cost = quantity * option_price
@@ -299,13 +330,31 @@ class Portfolio:
         if days_to_maturity <= 0:
             raise ValueError("Cannot sell expired options")
         
+        # Get the current stock price
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            date_index = price_simulator.dates.index(date_str)
+            stock_price = price_simulator.simulated_prices[date_index]
+        except (ValueError, IndexError):
+            raise ValueError(f"Date {date_str} not found in price simulator")
+        
         # Calculate option price
         if option_type == "CALL":
-            option_price = price_simulator.black_scholes_call(strike, days_to_maturity)
+            option_price = price_simulator.black_scholes_call(
+                strike, 
+                days_to_maturity, 
+                current_price=stock_price, 
+                current_date=current_date
+            )
         else:  # PUT
-            option_price = price_simulator.black_scholes_put(strike, days_to_maturity)
+            option_price = price_simulator.black_scholes_put(
+                strike, 
+                days_to_maturity, 
+                current_price=stock_price, 
+                current_date=current_date
+            )
         
-        # Calculate the proceeds (assuming 1 contract = 100 shares)
+        # Calculate the proceeds (assuming 1 contract = 1 shares)
         proceeds = quantity * option_price
         
         # Update cash
@@ -360,7 +409,8 @@ class Portfolio:
         put_option_quantity = 0
         if stock_quantity > 0:
             try:
-                date_index = price_simulator.dates.index(current_date)
+                date_str = current_date.strftime("%Y-%m-%d")
+                date_index = price_simulator.dates.index(date_str)
                 stock_price = price_simulator.simulated_prices[date_index]
                 holdings.append({
                     "Asset": "STOCK",
@@ -389,18 +439,36 @@ class Portfolio:
                 if days_to_maturity <= 0:
                     continue
                     
+                # Get the current stock price
+                try:
+                    date_str = current_date.strftime("%Y-%m-%d")
+                    date_index = price_simulator.dates.index(date_str)
+                    stock_price = price_simulator.simulated_prices[date_index]
+                except (ValueError, IndexError):
+                    raise ValueError(f"Date {date_str} not found in price simulator")
+                    
                 # Calculate option price
                 strike = float(strike)
                 if option_type == "CALL":
-                    option_price = price_simulator.black_scholes_call(strike, days_to_maturity)
+                    option_price = price_simulator.black_scholes_call(
+                        strike, 
+                        days_to_maturity, 
+                        current_price=stock_price, 
+                        current_date=current_date
+                    )
                 else:  # PUT
-                    option_price = price_simulator.black_scholes_put(strike, days_to_maturity)
+                    option_price = price_simulator.black_scholes_put(
+                        strike, 
+                        days_to_maturity, 
+                        current_price=stock_price, 
+                        current_date=current_date
+                    )
                 
                 holdings.append({
                     "Asset": asset_id,
                     "Quantity": quantity,
                     "Price": option_price,
-                    "Value": quantity * option_price * 100  # 1 contract = 100 shares
+                    "Value": quantity * option_price
                 })
         
         return {

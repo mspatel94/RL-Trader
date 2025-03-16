@@ -87,6 +87,7 @@ def compare_policies(steps=1000):
     ppo_lstm.learn(total_timesteps=steps)
     
     print("Training Actor-Critic...")
+    batch_size = 32  # Or another appropriate batch size
     for episode in range(100):
         state, _ = env.reset()
         done = False
@@ -96,7 +97,14 @@ def compare_policies(steps=1000):
             done = terminated or truncated
             actor_critic.store_transition(state, action, reward, next_state, done)
             state = next_state
-        actor_critic.update_policy()
+            
+            # Only update after collecting enough transitions
+            if len(actor_critic.states) >= batch_size:
+                actor_critic.update_policy()
+        
+        # Make sure to update at the end of each episode with remaining transitions
+        if len(actor_critic.states) > 0:
+            actor_critic.update_policy()
     
     # Evaluate policies
     policies = {

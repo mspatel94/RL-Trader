@@ -113,28 +113,36 @@ class PriceSimulator:
         plt.grid(True)
         return plt
     
-    def black_scholes_call(self, strike, maturity_days):
+    def black_scholes_call(self, strike, maturity_days, current_price=None, current_date=None):
         """
         Calculate Black-Scholes price for a call option.
         
         Parameters:
         strike (float): Strike price
-        maturity_days (int): Days until option maturity
+        maturity_days (int): Days until option maturity from time 0, or remaining days if current_date is provided
+        current_price (float, optional): Current stock price (uses initial price if None)
+        current_date (datetime, optional): Current date for calculating remaining time to maturity
         
         Returns:
         float: Call option price
         """
-        if self.simulated_prices is None:
-            raise ValueError("Run simulate_path first")
+        if self.simulated_prices is None and current_price is None:
+            raise ValueError("Run simulate_path first or provide current_price")
             
         # Current stock price (S)
-        S = self.simulated_prices[0]
+        S = current_price if current_price is not None else self.simulated_prices[0]
         
         # Strike price (K)
         K = strike
         
         # Time to maturity in years
-        T = maturity_days / 252
+        if current_date is not None:
+            start_date = datetime.now()
+            maturity_date = start_date + timedelta(days=maturity_days)
+            remaining_days = (maturity_date - current_date).days
+            tau = max(0, remaining_days) / 252  # Ensure non-negative
+        else:
+            tau = maturity_days / 252
         
         # Risk-free rate (r)
         r = self.risk_free_rate
@@ -143,36 +151,44 @@ class PriceSimulator:
         sigma = self.sigma
         
         # Black-Scholes formula components
-        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-        d2 = d1 - sigma * np.sqrt(T)
+        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * tau) / (sigma * np.sqrt(tau))
+        d2 = d1 - sigma * np.sqrt(tau)
         
         # Call option price
-        call_price = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+        call_price = S * norm.cdf(d1) - K * np.exp(-r * tau) * norm.cdf(d2)
         
         return call_price
     
-    def black_scholes_put(self, strike, maturity_days):
+    def black_scholes_put(self, strike, maturity_days, current_price=None, current_date=None):
         """
         Calculate Black-Scholes price for a put option.
         
         Parameters:
         strike (float): Strike price
-        maturity_days (int): Days until option maturity
+        maturity_days (int): Days until option maturity from time 0, or remaining days if current_date is provided
+        current_price (float, optional): Current stock price (uses initial price if None)
+        current_date (datetime, optional): Current date for calculating remaining time to maturity
         
         Returns:
         float: Put option price
         """
-        if self.simulated_prices is None:
-            raise ValueError("Run simulate_path first")
+        if self.simulated_prices is None and current_price is None:
+            raise ValueError("Run simulate_path first or provide current_price")
             
         # Current stock price (S)
-        S = self.simulated_prices[0]
+        S = current_price if current_price is not None else self.simulated_prices[0]
         
         # Strike price (K)
         K = strike
         
         # Time to maturity in years
-        T = maturity_days / 252
+        if current_date is not None:
+            start_date = datetime.now()
+            maturity_date = start_date + timedelta(days=maturity_days)
+            remaining_days = (maturity_date - current_date).days
+            tau = max(0, remaining_days) / 252  # Ensure non-negative
+        else:
+            tau = maturity_days / 252
         
         # Risk-free rate (r)
         r = self.risk_free_rate
@@ -181,39 +197,47 @@ class PriceSimulator:
         sigma = self.sigma
         
         # Black-Scholes formula components
-        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-        d2 = d1 - sigma * np.sqrt(T)
+        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * tau) / (sigma * np.sqrt(tau))
+        d2 = d1 - sigma * np.sqrt(tau)
         
         # Put option price using put-call parity
-        put_price = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+        put_price = K * np.exp(-r * tau) * norm.cdf(-d2) - S * norm.cdf(-d1)
         
         return put_price
     
-    def calculate_option_prices(self, strikes, maturities):
+    def calculate_option_prices(self, strikes, maturities, current_price=None, current_date=None):
         """
         Calculate option prices for various strikes and maturities.
         
         Parameters:
         strikes (list): List of strike prices
-        maturities (list): List of maturities in days
+        maturities (list): List of maturities in days from time 0
+        current_price (float, optional): Current stock price (uses initial price if None)
+        current_date (datetime, optional): Current date for calculating remaining time to maturity
         
         Returns:
         pandas.DataFrame: DataFrame with option prices
         """
-        if self.simulated_prices is None:
-            raise ValueError("Run simulate_path first")
+        if self.simulated_prices is None and current_price is None:
+            raise ValueError("Run simulate_path first or provide current_price")
             
         results = []
         
         for strike in strikes:
             for maturity in maturities:
-                call_price = self.black_scholes_call(strike, maturity)
-                put_price = self.black_scholes_put(strike, maturity)
+                call_price = self.black_scholes_call(strike, maturity, current_price, current_date)
+                put_price = self.black_scholes_put(strike, maturity, current_price, current_date)
+                
+                # Calculate actual maturity date based on current date or simulation start
+                if current_date is not None:
+                    maturity_date = current_date + timedelta(days=maturity)
+                else:
+                    maturity_date = datetime.now() + timedelta(days=maturity)
                 
                 results.append({
                     'Strike': strike,
                     'Maturity (days)': maturity,
-                    'Maturity Date': (datetime.now() + timedelta(days=maturity)).strftime('%Y-%m-%d'),
+                    'Maturity Date': maturity_date.strftime('%Y-%m-%d'),
                     'Call Price': round(call_price, 2),
                     'Put Price': round(put_price, 2)
                 })
