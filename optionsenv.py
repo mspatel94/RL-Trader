@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 from price_simulator import PriceSimulator
 from portfolio_class import Portfolio
 
-class StockTradingEnv(gym.Env):
+class OptionTradingEnv(gym.Env):
     """
     Custom Gymnasium environment for stock trading with options.
     
@@ -339,7 +339,7 @@ class StockTradingEnv(gym.Env):
             to_sell = int(current_qty * amount_ratio)
             return ("SELL_OPTION", ("PUT", strike_price, maturity_dt, to_sell))
         
-        return action_type, amount
+        return action_type, 0
     
     def step(self, action):
         """
