@@ -77,11 +77,11 @@ class StockTradingEnv(gym.Env):
         self.reset()
         
         # Action space: [action_type, amount]
-        # action_type: 0 (buy), 1 (sell), 2 (hold)
+        # action_type: 0 (buy), 1 (sell), 2 (hold), 3 (buy call), 4 (sell call), 5 (buy put), 6 (sell put)
         # amount: Proportion of available cash/stock to use (0.0 to 1.0)
         self.action_space = spaces.Box(
             low=np.array([0, 0]), 
-            high=np.array([2, 1]),
+            high=np.array([6, 1]),
             dtype=np.float32
         )
         
@@ -90,14 +90,20 @@ class StockTradingEnv(gym.Env):
         # 2. Portfolio info (cash, stock value, option value, total value)
         # 3. Holdings (current stock quantity)
         # 4. Return metrics (daily returns for history_length days)
+        # 5. Call option price (for 30 days out at the money)
+        # 6. Put option price (for 30 days out at the money)
+        # 7. Call option holdings
+        # 8. Put option holdings
         
         # Calculate observation space bounds
         price_history_dim = self.history_length
-        portfolio_info_dim = 4  # cash, stock value, option value, total value
-        holdings_dim = 1  # stock quantity
+        portfolio_info_dim = 4  # cash, stock value, call option value, put option value, total value
+        stock_holdings_dim = 1  # stock quantity
+        option_holdings_dim = 2  # call and put option holdings
         returns_dim = self.history_length  # daily returns
         
-        obs_dim = price_history_dim + portfolio_info_dim + holdings_dim + returns_dim
+        
+        obs_dim = price_history_dim + portfolio_info_dim + stock_holdings_dim + option_holdings_dim + returns_dim
         
         # Wide bounds for all observation values
         self.observation_space = spaces.Box(
@@ -230,12 +236,16 @@ class StockTradingEnv(gym.Env):
             padding = np.zeros(self.history_length - len(returns))
             returns = np.concatenate((padding, returns))
         
+        call_qty = portfolio_summary["Call Options Quantity"]
+        put_qty  = portfolio_summary["Put Options Quantity"]
         # Combine all parts into one observation array
         observation = np.concatenate([
             normalized_price_history,
             normalized_portfolio_info,
             normalized_holdings,
-            returns
+            returns,
+            np.array([call_qty, put_qty])
+
         ]).astype(np.float32)
         
         return observation
@@ -250,8 +260,23 @@ class StockTradingEnv(gym.Env):
         Returns:
             Tuple: (action_type, amount)
         """
-        action_type = round(float(action[0]))  # 0: buy, 1: sell, 2: hold
-        amount_ratio = max(0.0, min(1.0, float(action[1])))  # Clamp between 0 and 1
+        raw_type = int(round(float(action[0])))
+        action_type = max(0, min(6, raw_type))  # clamp to [0..6]
+        
+        # 2) The second dimension is ratio [0..1]
+        amount_ratio = max(0.0, min(1.0, float(action[1])))
+        
+        # 3) Gather helpful info
+        portfolio_summary = self.portfolio.get_portfolio_summary(
+            self.price_simulator, 
+            self.current_date
+        )
+        date_index = self.history_length + self.current_step
+        current_price = self.price_simulator.simulated_prices[date_index]
+        
+        # We'll pick a default 30-day maturity and strike = current stock price
+        maturity_dt = datetime.strptime(self.current_date, "%Y-%m-%d") + timedelta(days=30)
+        strike_price = float(current_price)
         
         # Determine actual amount based on the action type
         portfolio_summary = self.portfolio.get_portfolio_summary(
@@ -259,19 +284,60 @@ class StockTradingEnv(gym.Env):
             self.current_date
         )
         
-        if action_type == 0:  # Buy
-            # Amount to buy based on available cash
-            cash = portfolio_summary["Cash"]
-            max_buy_amount = cash / self.price_simulator.simulated_prices[self.history_length + self.current_step]
-            amount = int(max_buy_amount * amount_ratio)
+        if action_type == 0:
+            # (BUY STOCK)
+            # figure out how many shares we can afford
+            cash_available = portfolio_summary["Cash"]
+            price_per_share = current_price
+            max_shares = int(cash_available // price_per_share)
+            shares_to_buy = int(max_shares * amount_ratio)
+            return ("BUY_STOCK", shares_to_buy)
         
-        elif action_type == 1:  # Sell
-            # Amount to sell based on current stock holdings
+        elif action_type == 1:
+            # (SELL STOCK)
             current_holdings = portfolio_summary["Stock Quantity"]
-            amount = int(current_holdings * amount_ratio)
+            shares_to_sell = int(current_holdings * amount_ratio)
+            return ("SELL_STOCK", shares_to_sell)
         
-        else:  # Hold
-            amount = 0
+        elif action_type == 2:
+            # (HOLD)
+            return ("HOLD", 0)
+        elif action_type == 3:
+            # (BUY CALL)
+            # we can guess how many call contracts we can afford
+            call_price = self.price_simulator.black_scholes_call(strike_price, 30)
+            # If your portfolio logic uses 1 contract = 100 shares, multiply by 100
+            cost_per_contract = call_price * 100
+            max_contracts = 0
+            if cost_per_contract > 0:
+                max_contracts = int(portfolio_summary["Cash"] // cost_per_contract)
+            to_buy = int(max_contracts * amount_ratio)
+            return ("BUY_OPTION", ("CALL", strike_price, maturity_dt, to_buy))
+        
+        elif action_type == 4:
+            # (SELL CALL)
+            # find how many calls we currently hold
+            option_id = f"CALL_{strike_price}_{maturity_dt.strftime('%Y-%m-%d')}"
+            current_qty = self.portfolio.current_holdings.get(option_id, 0)
+            to_sell = int(current_qty * amount_ratio)
+            return ("SELL_OPTION", ("CALL", strike_price, maturity_dt, to_sell))
+        
+        elif action_type == 5:
+            # (BUY PUT)
+            put_price = self.price_simulator.black_scholes_put(strike_price, 30)
+            cost_per_contract = put_price * 100
+            max_contracts = 0
+            if cost_per_contract > 0:
+                max_contracts = int(portfolio_summary["Cash"] // cost_per_contract)
+            to_buy = int(max_contracts * amount_ratio)
+            return ("BUY_OPTION", ("PUT", strike_price, maturity_dt, to_buy))
+        
+        elif action_type == 6:
+            # (SELL PUT)
+            option_id = f"PUT_{strike_price}_{maturity_dt.strftime('%Y-%m-%d')}"
+            current_qty = self.portfolio.current_holdings.get(option_id, 0)
+            to_sell = int(current_qty * amount_ratio)
+            return ("SELL_OPTION", ("PUT", strike_price, maturity_dt, to_sell))
         
         return action_type, amount
     
@@ -286,7 +352,7 @@ class StockTradingEnv(gym.Env):
             Tuple: (observation, reward, terminated, truncated, info)
         """
         # Map action to concrete trading decision
-        action_type, amount = self._map_action(action)
+        command, data = self._map_action(action)
         
         # Record portfolio value before action
         portfolio_value_before = self.portfolio.get_portfolio_value(
@@ -294,32 +360,74 @@ class StockTradingEnv(gym.Env):
             self.current_date
         )
         
-        # Execute action
-        success = False
-        if action_type == 0 and amount > 0:  # Buy
-            success = self.portfolio.buy_stock(
-                self.price_simulator, 
-                self.current_date, 
-                amount
-            )
+        # # Execute action
+        # success = False
+        # if action_type == 0 and amount > 0:  # Buy
+        #     success = self.portfolio.buy_stock(
+        #         self.price_simulator, 
+        #         self.current_date, 
+        #         amount
+        #     )
         
-        elif action_type == 1 and amount > 0:  # Sell
-            success = self.portfolio.sell_stock(
-                self.price_simulator, 
-                self.current_date, 
-                amount
-            )
+        # elif action_type == 1 and amount > 0:  # Sell
+        #     success = self.portfolio.sell_stock(
+        #         self.price_simulator, 
+        #         self.current_date, 
+        #         amount
+        #     )
         
-        else:  # Hold or invalid action
-            success = True  # Holding is always successful
+        # else:  # Hold or invalid action
+        #     success = True  # Holding is always successful
+        success = True
+        # Execute the command
+        if command == "BUY_STOCK":
+            shares_to_buy = data
+            if shares_to_buy > 0:
+                success = self.portfolio.buy_stock(
+                    self.price_simulator, 
+                    self.current_date, 
+                    shares_to_buy
+                )
+                
+        elif command == "SELL_STOCK":
+            shares_to_sell = data
+            if shares_to_sell > 0:
+                success = self.portfolio.sell_stock(
+                    self.price_simulator, 
+                    self.current_date, 
+                    shares_to_sell
+                )
+        
+        elif command == "BUY_OPTION":
+            opt_type, strike, maturity_dt, qty = data
+            if qty > 0:
+                success = self.portfolio.buy_option(
+                    self.price_simulator,
+                    self.current_date,
+                    opt_type,
+                    strike,
+                    maturity_dt,
+                    qty
+                )
+        
+        elif command == "SELL_OPTION":
+            opt_type, strike, maturity_dt, qty = data
+            if qty > 0:
+                success = self.portfolio.sell_option(
+                    self.price_simulator,
+                    self.current_date,
+                    opt_type,
+                    strike,
+                    maturity_dt,
+                    qty
+                )
+        
         
         # Advance time step
         self.current_step += 1
         # self.current_date += timedelta(days=1)
         self.current_date = (
-    self.start_date 
-    + timedelta(days=self.history_length + self.current_step)
-).strftime("%Y-%m-%d")
+    self.start_date + timedelta(days=self.history_length + self.current_step)).strftime("%Y-%m-%d")
 
         
         # Get portfolio value after action
@@ -333,7 +441,7 @@ class StockTradingEnv(gym.Env):
         
         # Add transaction cost penalty for unsuccessful actions
         if not success:
-            reward -= 0.001  # Small penalty for failed transactions
+            reward -= 0.01  # Small penalty for failed transactions
         
         # Check if episode is done
         terminated = self.current_step >= self.max_steps
@@ -349,8 +457,8 @@ class StockTradingEnv(gym.Env):
             "step": self.current_step,
             "date": self.current_date,
             "action_success": success,
-            "action_type": ["buy", "sell", "hold"][action_type],
-            "action_amount": amount,
+            "action_type": command,
+            "action_amount": data,
             "stock_price": self.price_simulator.simulated_prices[self.history_length + self.current_step],
             "portfolio_return": portfolio_value_after / self.initial_portfolio_value - 1
         }

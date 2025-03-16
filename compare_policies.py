@@ -71,12 +71,12 @@ def compare_policies(steps=1000):
     # Create environment
     env = StockTradingEnv(**train_env_params)
     state_dim = env.observation_space.shape[0]
-    action_dim = 2
+    action_dim = env.observation_space.shape[0]
     
     # Initialize policies
     ppo = PPO("MlpPolicy", env, verbose=1)
     actor_critic = ActorCritic(state_dim=state_dim, action_dim=action_dim)
-    ppo_lstm = RecurrentPPO("MlpLstmPolicy", env, verbose=1)
+    # ppo_lstm = RecurrentPPO("MlpLstmPolicy", env, verbose=1)
 
     
     # Train policies

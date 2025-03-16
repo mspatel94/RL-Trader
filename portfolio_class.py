@@ -306,7 +306,7 @@ class Portfolio:
             option_price = price_simulator.black_scholes_put(strike, days_to_maturity)
         
         # Calculate the proceeds (assuming 1 contract = 100 shares)
-        proceeds = quantity * option_price * 100
+        proceeds = quantity * option_price
         
         # Update cash
         self.cash += proceeds
@@ -349,12 +349,15 @@ class Portfolio:
         
         # Get the detailed breakdown from the history
         value_details = self.portfolio_value_history[current_date]
+
         
         # Get holdings details
         holdings = []
         
         # Add stock holding
         stock_quantity = self.current_holdings.get("STOCK", 0)
+        call_option_quantity = 0
+        put_option_quantity = 0
         if stock_quantity > 0:
             try:
                 date_index = price_simulator.dates.index(current_date)
@@ -377,6 +380,11 @@ class Portfolio:
                 maturity_date = datetime.strptime(maturity, "%Y-%m-%d")
                 days_to_maturity = (maturity_date - current_date).days
                 
+                if option_type == "CALL":
+                    call_option_quantity += quantity
+                else:
+                    put_option_quantity += quantity
+
                 # Skip expired options
                 if days_to_maturity <= 0:
                     continue
@@ -402,6 +410,8 @@ class Portfolio:
             "Options Value": value_details["Options Value"],
             "Total Value": value_details["Total Value"],
             "Stock Quantity": stock_quantity,
+            "Call Options Quantity": call_option_quantity,
+            "Put Options Quantity": put_option_quantity,
             "Holdings": holdings
         }
     
