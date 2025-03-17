@@ -189,11 +189,12 @@ class PriceSimulator:
         
         # Strike price (K)
         K = strike
+
+        print(f"Strike: {strike}, Maturity: {maturity_days}, Current Price: {current_price}, Current Date: {current_date}")
         
         # Time to maturity in years
         if current_date is not None:
-            start_date = datetime.now()
-            maturity_date = start_date + timedelta(days=maturity_days)
+            maturity_date = current_date + timedelta(days=maturity_days)
             remaining_days = (maturity_date - current_date).days
             tau = max(0, remaining_days) / 252  # Ensure non-negative
         else:

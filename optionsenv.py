@@ -84,6 +84,8 @@ class OptionTradingEnv(gym.Env):
             high=np.array([6, 1]),
             dtype=np.float32
         )
+
+        # self.action_space = spaces.MultiDiscrete([7, 2])
         
         # State space
         # 1. Price history (history_length days)
@@ -200,9 +202,9 @@ class OptionTradingEnv(gym.Env):
         date_index = self.history_length + self.current_step
         
         # 1. Get price history (normalized by current price)
-        current_price = self.price_simulator.simulated_prices[date_index]
+        current_price = self.price_simulator.simulated_prices.iloc[date_index]
         history_range = range(date_index - self.history_length, date_index)
-        price_history = self.price_simulator.simulated_prices[history_range]
+        price_history = self.price_simulator.simulated_prices.iloc[history_range]
         normalized_price_history = price_history / current_price
         
         # 2. Get portfolio information
@@ -229,8 +231,8 @@ class OptionTradingEnv(gym.Env):
         normalized_holdings = np.array([stock_quantity * current_price / self.initial_portfolio_value])
         
         # 4. Calculate returns
-        returns = np.diff(self.price_simulator.simulated_prices[history_range]) / \
-                 self.price_simulator.simulated_prices[history_range[:-1]]
+        returns = np.diff(self.price_simulator.simulated_prices.iloc[history_range]) / \
+                 self.price_simulator.simulated_prices.iloc[history_range[:-1]]
         
         # Ensure returns array has expected length
         if len(returns) < self.history_length:
@@ -273,7 +275,7 @@ class OptionTradingEnv(gym.Env):
             self.current_date_dt
         )
         date_index = self.history_length + self.current_step
-        current_price = self.price_simulator.simulated_prices[date_index]
+        current_price = self.price_simulator.simulated_prices.iloc[date_index]
         
         # We'll pick a default 30-day maturity and strike = current stock price
         maturity_dt = datetime.strptime(self.current_date, "%Y-%m-%d") + timedelta(days=30)
@@ -308,7 +310,7 @@ class OptionTradingEnv(gym.Env):
             # we can guess how many call contracts we can afford
             call_price = self.price_simulator.black_scholes_call(strike_price+1, 30, current_price, self.current_date_dt)
             # If your portfolio logic uses 1 contract = 100 shares, multiply by 100
-            cost_per_contract = call_price * 100
+            cost_per_contract = call_price
             max_contracts = 0
             if cost_per_contract > 0:
                 max_contracts = int(portfolio_summary["Cash"] // cost_per_contract)
@@ -326,7 +328,7 @@ class OptionTradingEnv(gym.Env):
         elif action_type == 5:
             # (BUY PUT)
             put_price = self.price_simulator.black_scholes_put(strike_price-1, 30, current_price, self.current_date_dt)
-            cost_per_contract = put_price * 100
+            cost_per_contract = put_price
             max_contracts = 0
             if cost_per_contract > 0:
                 max_contracts = int(portfolio_summary["Cash"] // cost_per_contract)
@@ -465,7 +467,7 @@ class OptionTradingEnv(gym.Env):
             "action_success": success,
             "action_type": command,
             "action_amount": data,
-            "stock_price": self.price_simulator.simulated_prices[self.history_length + self.current_step],
+            "stock_price": self.price_simulator.simulated_prices.iloc[self.history_length + self.current_step],
             "portfolio_return": portfolio_value_after / self.initial_portfolio_value - 1
         }
         
@@ -485,7 +487,7 @@ class OptionTradingEnv(gym.Env):
                 self.price_simulator, 
                 self.current_date_dt
             )
-        current_price = self.price_simulator.simulated_prices[self.history_length + self.current_step]
+        current_price = self.price_simulator.simulated_prices.iloc[self.history_length + self.current_step]
             
         # Print summary
         print(f"\n===== Step {self.current_step} | Date: {self.current_date} =====")

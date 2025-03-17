@@ -147,6 +147,8 @@ class StockTradingEnv(gym.Env):
         self.start_date = datetime.now()
         # self.start_date = self.start_date.strftime("%Y-%m-%d")
         self.current_date = (self.start_date + timedelta(days=self.history_length)).strftime("%Y-%m-%d")
+        self.current_date_dt = self.start_date + timedelta(days=self.history_length + self.current_step)
+
         
         # Initialize portfolio
         self.portfolio = Portfolio(self.initial_cash)
@@ -154,7 +156,7 @@ class StockTradingEnv(gym.Env):
         # Calculate initial portfolio value to track performance
         self.initial_portfolio_value = self.portfolio.get_portfolio_value(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         # Get the initial observation
@@ -198,7 +200,7 @@ class StockTradingEnv(gym.Env):
         # 2. Get portfolio information
         portfolio_summary = self.portfolio.get_portfolio_summary(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         cash = portfolio_summary["Cash"]
@@ -253,7 +255,7 @@ class StockTradingEnv(gym.Env):
         # Determine actual amount based on the action type
         portfolio_summary = self.portfolio.get_portfolio_summary(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         if action_type == 0:  # Buy
@@ -288,7 +290,7 @@ class StockTradingEnv(gym.Env):
         # Record portfolio value before action
         portfolio_value_before = self.portfolio.get_portfolio_value(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         # Execute action
@@ -296,14 +298,14 @@ class StockTradingEnv(gym.Env):
         if action_type == 0 and amount > 0:  # Buy
             success = self.portfolio.buy_stock(
                 self.price_simulator, 
-                self.current_date, 
+                self.current_date_dt, 
                 amount
             )
         
         elif action_type == 1 and amount > 0:  # Sell
             success = self.portfolio.sell_stock(
                 self.price_simulator, 
-                self.current_date, 
+                self.current_date_dt, 
                 amount
             )
         
@@ -314,12 +316,12 @@ class StockTradingEnv(gym.Env):
         self.current_step += 1
         # self.current_date += timedelta(days=1)
         self.current_date = (self.start_date + timedelta(days=self.current_step)).strftime("%Y-%m-%d")
-
+        self.current_date_dt = self.start_date + timedelta(days=self.current_step)
         
         # Get portfolio value after action
         portfolio_value_after = self.portfolio.get_portfolio_value(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         # Calculate reward (change in portfolio value)
@@ -327,7 +329,7 @@ class StockTradingEnv(gym.Env):
         
         # Add transaction cost penalty for unsuccessful actions
         if not success:
-            reward -= 0.001  # Small penalty for failed transactions
+            reward -= 1  # Small penalty for failed transactions
         
         # Check if episode is done
         terminated = self.current_step >= self.max_steps
@@ -349,6 +351,7 @@ class StockTradingEnv(gym.Env):
             "portfolio_return": portfolio_value_after / self.initial_portfolio_value - 1
         }
         
+        
         return observation, reward, terminated, truncated, info
     
     def render(self):
@@ -363,7 +366,7 @@ class StockTradingEnv(gym.Env):
         """
         portfolio_summary = self.portfolio.get_portfolio_summary(
                 self.price_simulator, 
-                self.current_date
+                self.current_date_dt
             )
         current_price = self.price_simulator.simulated_prices[self.history_length + self.current_step]
             

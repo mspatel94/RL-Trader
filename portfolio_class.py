@@ -39,7 +39,7 @@ class Portfolio:
         try:
             date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
-            stock_price = price_simulator.simulated_prices[date_index]
+            stock_price = price_simulator.simulated_prices.iloc[date_index]
         except (ValueError, IndexError):
             raise ValueError(f"Date {date_str} not found in price simulator")
         
@@ -110,6 +110,75 @@ class Portfolio:
         
         return option_type, strike, maturity
 
+    def sell_covered_call(self, price_simulator, current_date, strike, maturity_date, quantity, contract_multiplier=1):
+        """
+        Sell call options as covered calls. Checks that there are enough underlying shares.
+        
+        Parameters:
+            price_simulator (PriceSimulator): To price the option.
+            current_date (datetime): Date of the transaction.
+            strike (float): Strike price for the call option.
+            maturity_date (datetime): Expiration date of the option.
+            quantity (int): Number of call contracts to sell.
+            contract_multiplier (int): Number of shares per contract (default 1).
+        
+        Returns:
+            bool: True if the transaction is successful, False otherwise.
+        """
+        # Check if enough stock is available to cover the call(s)
+        required_shares = quantity * contract_multiplier
+        available_shares = self.current_holdings.get("STOCK", 0)
+        if available_shares < required_shares:
+            print("Not enough shares to cover the call sale.")
+            return False
+        
+        # Get the current stock price
+        try:
+            date_str = current_date.strftime("%Y-%m-%d")
+            date_index = price_simulator.dates.index(date_str)
+            stock_price = price_simulator.simulated_prices[date_index]
+        except (ValueError, IndexError):
+            raise ValueError(f"Date {date_str} not found in price simulator")
+        
+        # Calculate days to maturity
+        days_to_maturity = (maturity_date - current_date).days
+        # Price the call option
+        option_price = price_simulator.black_scholes_call(
+            strike, 
+            days_to_maturity, 
+            current_price=stock_price, 
+            current_date=current_date
+        )
+        # Calculate proceeds (using contract_multiplier)
+        proceeds = quantity * option_price * contract_multiplier
+        
+        # Update cash with the premium received
+        self.cash += proceeds
+        
+        # Record the covered call sale.
+        # Here we record a short position in the option as a negative quantity.
+        option_id = f"CALL_{strike}_{maturity_date.strftime('%Y-%m-%d')}"
+        self.current_holdings[option_id] = self.current_holdings.get(option_id, 0) - quantity
+        
+        # Optionally, you may want to mark the underlying stock as "covered"
+        # so that they are not sold again until the option expires.
+        # For simplicity, we leave the stock position unchanged.
+        
+        # Record the transaction
+        self.transaction_history.append({
+            "Date": current_date,
+            "Type": "SELL_COVERED_CALL",
+            "Asset": option_id,
+            "Quantity": quantity,
+            "Price": option_price,
+            "Total": proceeds,
+            "Covered": True
+        })
+        
+        print(f"Sold {quantity} covered call contract(s) for {option_id}, covering {required_shares} shares.")
+        return True
+
+
     def sell_options_expiring_tomorrow(self, price_simulator, current_date):
         """
         Sell all option contracts in the portfolio that are expiring in one day.
@@ -135,7 +204,7 @@ class Portfolio:
             days_to_maturity = (maturity_date - current_date).days
             
             # If the option is expiring in one day, sell all contracts.
-            if days_to_maturity == 1:
+            if days_to_maturity <= 2:
                 # Attempt to sell all held contracts for this option.
                 success = self.sell_option(
                     price_simulator, 
@@ -169,7 +238,7 @@ class Portfolio:
         try:
             date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
-            stock_price = price_simulator.simulated_prices[date_index]
+            stock_price = price_simulator.simulated_prices.iloc[date_index]
         except (ValueError, IndexError):
             raise ValueError(f"Date {date_str} not found in price simulator")
         
@@ -225,7 +294,7 @@ class Portfolio:
         try:
             date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
-            stock_price = price_simulator.simulated_prices[date_index]
+            stock_price = price_simulator.simulated_prices.iloc[date_index]
         except (ValueError, IndexError):
             raise ValueError(f"Date {date_str} not found in price simulator")
         
@@ -283,7 +352,7 @@ class Portfolio:
         try:
             date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
-            stock_price = price_simulator.simulated_prices[date_index]
+            stock_price = price_simulator.simulated_prices.iloc[date_index]
         except (ValueError, IndexError):
             raise ValueError(f"Date {date_str} not found in price simulator")
         print(date_str, current_date, days_to_maturity, stock_price)
@@ -374,7 +443,7 @@ class Portfolio:
         try:
             date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
-            stock_price = price_simulator.simulated_prices[date_index]
+            stock_price = price_simulator.simulated_prices.iloc[date_index]
         except (ValueError, IndexError):
             raise ValueError(f"Date {date_str} not found in price simulator")
         
@@ -451,7 +520,7 @@ class Portfolio:
             try:
                 date_str = current_date.strftime("%Y-%m-%d")
                 date_index = price_simulator.dates.index(date_str)
-                stock_price = price_simulator.simulated_prices[date_index]
+                stock_price = price_simulator.simulated_prices.iloc[date_index]
                 holdings.append({
                     "Asset": "STOCK",
                     "Quantity": stock_quantity,
@@ -483,7 +552,7 @@ class Portfolio:
                 try:
                     date_str = current_date.strftime("%Y-%m-%d")
                     date_index = price_simulator.dates.index(date_str)
-                    stock_price = price_simulator.simulated_prices[date_index]
+                    stock_price = price_simulator.simulated_prices.iloc[date_index]
                 except (ValueError, IndexError):
                     raise ValueError(f"Date {date_str} not found in price simulator")
                     
