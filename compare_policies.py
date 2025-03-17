@@ -5,7 +5,6 @@ from stockenv import StockTradingEnv
 from optionsenv import OptionTradingEnv
 from actor_critic_model import ActorCritic
 import seaborn as sns
-from sb3_contrib.ppo_recurrent import RecurrentPPO
 import pandas as pd
 
 
@@ -54,7 +53,7 @@ def compare_policies(steps=1000):
         'mu': 0.1,
         'sigma': 0.02,
         'risk_free_rate': 0.03,
-        'max_steps': 40000,  
+        'max_steps': 252,  
         'history_length': 30
     }
 
@@ -64,7 +63,7 @@ def compare_policies(steps=1000):
         'mu': 0.1,
         'sigma': 0.02,
         'risk_free_rate': 0.03,
-        'max_steps': 1000,  # One trading year
+        'max_steps': 252,  # One trading year
         'history_length': 30
     }
 
