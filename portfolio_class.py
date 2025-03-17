@@ -37,7 +37,7 @@ class Portfolio:
         
         # Get the stock price for the current date
         try:
-            date_str = current_date
+            date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
@@ -48,36 +48,46 @@ class Portfolio:
         
         # Calculate options value
         options_value = 0
-        for asset_id, quantity in self.current_holdings.items():
+        for asset_id, quantity in list(self.current_holdings.items()):
             if asset_id != "STOCK" and quantity > 0:
-                option_type, strike, maturity = self._parse_option_id(asset_id)
-                
-                # Calculate days to maturity
-                maturity_date = datetime.strptime(maturity, "%Y-%m-%d")
-                days_to_maturity = (maturity_date - current_date).days
-                
-                # Skip expired options
-                if days_to_maturity <= 0:
-                    continue
+                try:
+                    option_type, strike, maturity = self._parse_option_id(asset_id)
                     
-                # Calculate option price
-                strike = float(strike)
-                if option_type == "CALL":
-                    option_price = price_simulator.black_scholes_call(
-                        strike, 
-                        days_to_maturity, 
-                        current_price=stock_price, 
-                        current_date=current_date
-                    )
-                else:  # PUT
-                    option_price = price_simulator.black_scholes_put(
-                        strike, 
-                        days_to_maturity, 
-                        current_price=stock_price, 
-                        current_date=current_date
-                    )
+                    # Calculate days to maturity
+                    maturity_date = datetime.strptime(maturity, "%Y-%m-%d")
+                    days_to_maturity = (maturity_date - current_date).days
+                    
+                    # Skip expired options
+                    if days_to_maturity <= 0:
+                        continue
+                        
+                    # Calculate option price
+                    strike = float(strike)
+                    if option_type == "CALL":
+                        option_price = price_simulator.black_scholes_call(
+                            strike, 
+                            days_to_maturity, 
+                            current_price=stock_price, 
+                            current_date=current_date
+                        )
+                    else:  # PUT
+                        option_price = price_simulator.black_scholes_put(
+                            strike, 
+                            days_to_maturity, 
+                            current_price=stock_price, 
+                            current_date=current_date
+                        )
+                    
+                    # Add the option value to the total
+                    options_value += quantity * option_price
+                    
+                    # Print debug information
+                    # print(f"Option: {asset_id}, Price: {option_price}, Value: {quantity * option_price}")
                 
-                options_value += quantity * option_price
+                except Exception as e:
+                    # Handle exceptions safely for each option
+                    print(f"Error valuing option {asset_id}: {str(e)}")
+                    continue
         
         # Total portfolio value
         total_value = self.cash + stock_value + options_value
@@ -127,7 +137,7 @@ class Portfolio:
             
         # Get the stock price for the current date
         try:
-            date_str = current_date
+            date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
@@ -183,7 +193,7 @@ class Portfolio:
         
         # Get the stock price for the current date
         try:
-            date_str = current_date
+            date_str = current_date.strftime("%Y-%m-%d")
             date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
@@ -248,23 +258,59 @@ class Portfolio:
             raise ValueError(f"Date {date_str} not found in price simulator")
         
         # Calculate option price
-        if option_type == "CALL":
-            option_price = price_simulator.black_scholes_call(
-                strike, 
-                days_to_maturity, 
-                current_price=stock_price, 
-                current_date=current_date
-            )
-        else:  # PUT
-            option_price = price_simulator.black_scholes_put(
-                strike, 
-                days_to_maturity, 
-                current_price=stock_price, 
-                current_date=current_date
-            )
+        try:
+            if option_type == "CALL":
+                option_price = price_simulator.black_scholes_call(
+                    strike, 
+                    days_to_maturity, 
+                    current_price=stock_price, 
+                    current_date=current_date
+                )
+            else:  # PUT
+                option_price = price_simulator.black_scholes_put(
+                    strike, 
+                    days_to_maturity, 
+                    current_price=stock_price, 
+                    current_date=current_date
+                )
+            
+            # Print for debugging
+            # print(f"Buying {option_type} option: Strike={strike}, Days={days_to_maturity}, Price={option_price}")
+            
+            # Calculate the cost
+            cost = quantity * option_price
+        except Exception as e:
+            print(f"Error calculating option price: {str(e)}")
+            return False
+            
+        # Check if there's enough cash
+        if cost > self.cash:
+            return False
         
-        # Calculate the cost (assuming 1 contract = 1 shares)
-        cost = quantity * option_price
+        # Create option ID
+        maturity_str = maturity_date.strftime("%Y-%m-%d")
+        option_id = f"{option_type}_{strike}_{maturity_str}"
+        
+        # Update cash
+        self.cash -= cost
+        
+        # Update holdings
+        self.current_holdings[option_id] = self.current_holdings.get(option_id, 0) + quantity
+        
+        # Record the transaction
+        self.transaction_history.append({
+            "Date": current_date,
+            "Type": "BUY",
+            "Asset": option_id,
+            "Quantity": quantity,
+            "Price": option_price,
+            "Total": cost
+        })
+        
+        # Update holdings history for this date
+        self.holdings_history[current_date] = self.current_holdings.copy()
+        
+        return True
         
         # Check if there's enough cash
         if cost > self.cash:
@@ -339,23 +385,55 @@ class Portfolio:
             raise ValueError(f"Date {date_str} not found in price simulator")
         
         # Calculate option price
-        if option_type == "CALL":
-            option_price = price_simulator.black_scholes_call(
-                strike, 
-                days_to_maturity, 
-                current_price=stock_price, 
-                current_date=current_date
-            )
-        else:  # PUT
-            option_price = price_simulator.black_scholes_put(
-                strike, 
-                days_to_maturity, 
-                current_price=stock_price, 
-                current_date=current_date
-            )
+        try:
+            if option_type == "CALL":
+                option_price = price_simulator.black_scholes_call(
+                    strike, 
+                    days_to_maturity, 
+                    current_price=stock_price, 
+                    current_date=current_date
+                )
+            else:  # PUT
+                option_price = price_simulator.black_scholes_put(
+                    strike, 
+                    days_to_maturity, 
+                    current_price=stock_price, 
+                    current_date=current_date
+                )
+            
+            # Print for debugging
+            # print(f"Selling {option_type} option: Strike={strike}, Days={days_to_maturity}, Price={option_price}")
+            
+            # Calculate the proceeds
+            proceeds = quantity * option_price
+        except Exception as e:
+            print(f"Error calculating option price for selling: {str(e)}")
+            return False
+            
+        # Update cash
+        self.cash += proceeds
         
-        # Calculate the proceeds (assuming 1 contract = 1 shares)
-        proceeds = quantity * option_price
+        # Update holdings
+        self.current_holdings[option_id] = current_quantity - quantity
+        
+        # Remove if quantity is 0
+        if self.current_holdings[option_id] == 0:
+            del self.current_holdings[option_id]
+        
+        # Record the transaction
+        self.transaction_history.append({
+            "Date": current_date,
+            "Type": "SELL",
+            "Asset": option_id,
+            "Quantity": quantity,
+            "Price": option_price,
+            "Total": proceeds
+        })
+        
+        # Update holdings history for this date
+        self.holdings_history[current_date] = self.current_holdings.copy()
+        
+        return True
         
         # Update cash
         self.cash += proceeds
@@ -398,10 +476,13 @@ class Portfolio:
         
         # Get the detailed breakdown from the history
         value_details = self.portfolio_value_history[current_date]
-
         
         # Get holdings details
         holdings = []
+        
+        # Track total call and put options
+        total_call_options = 0
+        total_put_options = 0
         
         # Add stock holding
         stock_quantity = self.current_holdings.get("STOCK", 0)
@@ -409,7 +490,7 @@ class Portfolio:
         put_option_quantity = 0
         if stock_quantity > 0:
             try:
-                date_str = current_date
+                date_str = current_date.strftime("%Y-%m-%d")
                 date_index = price_simulator.dates.index(date_str)
                 stock_price = price_simulator.simulated_prices[date_index]
                 holdings.append({
@@ -422,54 +503,62 @@ class Portfolio:
                 pass
         
         # Add options holdings
-        for asset_id, quantity in self.current_holdings.items():
+        for asset_id, quantity in list(self.current_holdings.items()):
             if asset_id != "STOCK" and quantity > 0:
-                option_type, strike, maturity = self._parse_option_id(asset_id)
-                
-                # Calculate days to maturity
-                maturity_date = datetime.strptime(maturity, "%Y-%m-%d")
-                days_to_maturity = (maturity_date - current_date).days
-                
-                if option_type == "CALL":
-                    call_option_quantity += quantity
-                else:
-                    put_option_quantity += quantity
-
-                # Skip expired options
-                if days_to_maturity <= 0:
-                    continue
-                    
-                # Get the current stock price
                 try:
-                    date_str = current_date.strftime("%Y-%m-%d")
-                    date_index = price_simulator.dates.index(date_str)
-                    stock_price = price_simulator.simulated_prices[date_index]
-                except (ValueError, IndexError):
-                    raise ValueError(f"Date {date_str} not found in price simulator")
+                    option_type, strike, maturity = self._parse_option_id(asset_id)
                     
-                # Calculate option price
-                strike = float(strike)
-                if option_type == "CALL":
-                    option_price = price_simulator.black_scholes_call(
-                        strike, 
-                        days_to_maturity, 
-                        current_price=stock_price, 
-                        current_date=current_date
-                    )
-                else:  # PUT
-                    option_price = price_simulator.black_scholes_put(
-                        strike, 
-                        days_to_maturity, 
-                        current_price=stock_price, 
-                        current_date=current_date
-                    )
-                
-                holdings.append({
-                    "Asset": asset_id,
-                    "Quantity": quantity,
-                    "Price": option_price,
-                    "Value": quantity * option_price
-                })
+                    # Update total option counts
+                    if option_type == "CALL":
+                        total_call_options += quantity
+                    else:  # PUT
+                        total_put_options += quantity
+                    
+                    # Calculate days to maturity
+                    maturity_date = datetime.strptime(maturity, "%Y-%m-%d")
+                    days_to_maturity = (maturity_date - current_date).days
+                    
+                    # Skip expired options
+                    if days_to_maturity <= 0:
+                        continue
+                        
+                    # Get the current stock price
+                    try:
+                        date_str = current_date.strftime("%Y-%m-%d")
+                        date_index = price_simulator.dates.index(date_str)
+                        stock_price = price_simulator.simulated_prices[date_index]
+                    except (ValueError, IndexError):
+                        print(f"Warning: Date {date_str} not found in price simulator")
+                        continue
+                        
+                    # Calculate option price
+                    strike = float(strike)
+                    if option_type == "CALL":
+                        option_price = price_simulator.black_scholes_call(
+                            strike, 
+                            days_to_maturity, 
+                            current_price=stock_price, 
+                            current_date=current_date
+                        )
+                    else:  # PUT
+                        option_price = price_simulator.black_scholes_put(
+                            strike, 
+                            days_to_maturity, 
+                            current_price=stock_price, 
+                            current_date=current_date
+                        )
+                    
+                    value = quantity * option_price
+                    holdings.append({
+                        "Asset": asset_id,
+                        "Quantity": quantity,
+                        "Price": option_price,
+                        "Value": value
+                    })
+                    
+                except Exception as e:
+                    print(f"Error processing option {asset_id} in summary: {str(e)}")
+                    continue
         
         return {
             "Date": current_date,
@@ -478,8 +567,8 @@ class Portfolio:
             "Options Value": value_details["Options Value"],
             "Total Value": value_details["Total Value"],
             "Stock Quantity": stock_quantity,
-            "Call Options Quantity": call_option_quantity,
-            "Put Options Quantity": put_option_quantity,
+            "Call Options Quantity": total_call_options,
+            "Put Options Quantity": total_put_options,
             "Holdings": holdings
         }
     
