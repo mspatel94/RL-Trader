@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 from stockenv import StockTradingEnv
+from optionsenv import OptionTradingEnv
 from actor_critic_model import ActorCritic
 import seaborn as sns
 from sb3_contrib.ppo_recurrent import RecurrentPPO
@@ -69,22 +70,17 @@ def compare_policies(steps=1000):
 
     
     # Create environment
-    env = StockTradingEnv(**train_env_params)
+    env = OptionTradingEnv(**train_env_params)
     state_dim = env.observation_space.shape[0]
     action_dim = env.observation_space.shape[0]
     
     # Initialize policies
     ppo = PPO("MlpPolicy", env, verbose=1)
     actor_critic = ActorCritic(state_dim=state_dim, action_dim=action_dim)
-    # ppo_lstm = RecurrentPPO("MlpLstmPolicy", env, verbose=1)
-
     
     # Train policies
     print("Training PPO...")
     ppo.learn(total_timesteps=steps)
-
-    print("Training PPO LSTM...")
-    ppo_lstm.learn(total_timesteps=steps)
     
     print("Training Actor-Critic...")
     batch_size = 32  # Or another appropriate batch size
@@ -117,11 +113,11 @@ def compare_policies(steps=1000):
     
     results = {}
     for name, policy in policies.items():
-        test_env = StockTradingEnv(**test_env_params)
+        test_env = OptionTradingEnv(**test_env_params)
         mean_return, std_return = evaluate_policy(test_env, policy, num_episodes=100)
         results[name] = {'mean': mean_return, 'std': std_return}
 
-    test_env = StockTradingEnv(**test_env_params)
+    test_env = OptionTradingEnv(**test_env_params)
     obs = test_env.reset()
     obs=obs[0]
     for i in range(500):
@@ -197,12 +193,12 @@ def analyze_ppo_sensitivity(ppo, max_steps=1000):
     # Test different seeds
     print("Testing different seeds...")
     for seed in seeds:
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=0.2)
+        env = OptionTradingEnv(**base_params, mu=0.1, sigma=0.2)
         # ppo = PPO("MlpPolicy", env, verbose=1, seed=seed)
         # ppo.learn(total_timesteps=50000)
         mean_return, _ = evaluate_policy(env, ppo)
         seed_results.append(mean_return)
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=0.2)
+        env = OptionTradingEnv(**base_params, mu=0.1, sigma=0.2)
         # mean_return, _ = evaluate_policy(env, ppo_lstm)
         # lstm_seed_results.append(mean_return)
 
@@ -210,24 +206,24 @@ def analyze_ppo_sensitivity(ppo, max_steps=1000):
     # Test different mus
     print("Testing different drift rates (mu)...")
     for mu in mus:
-        env = StockTradingEnv(**base_params, mu=mu, sigma=0.2)
+        env = OptionTradingEnv(**base_params, mu=mu, sigma=0.2)
         # ppo = PPO("MlpPolicy", env, verbose=1)
         # ppo.learn(total_timesteps=50000)
         mean_return, _ = evaluate_policy(env, ppo)
         mu_results.append(mean_return)
-        env = StockTradingEnv(**base_params, mu=mu, sigma=0.2)
+        env = OptionTradingEnv(**base_params, mu=mu, sigma=0.2)
         # mean_return, _ = evaluate_policy(env, ppo_lstm)
         # lstm_mu_results.append(mean_return)
     
     # Test different sigmas
     print("Testing different volatilities (sigma)...")
     for sigma in sigmas:
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=sigma)
+        env = OptionTradingEnv(**base_params, mu=0.1, sigma=sigma)
         ppo = PPO("MlpPolicy", env, verbose=1)
         ppo.learn(total_timesteps=50000)
         mean_return, _ = evaluate_policy(env, ppo)
         sigma_results.append(mean_return)
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=sigma)
+        env = OptionTradingEnv(**base_params, mu=0.1, sigma=sigma)
         # mean_return, _ = evaluate_policy(env, ppo_lstm)
         # lstm_sigma_results.append(mean_return)
     

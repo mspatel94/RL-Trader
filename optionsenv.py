@@ -156,6 +156,7 @@ class OptionTradingEnv(gym.Env):
     self.start_date 
     + timedelta(days=self.history_length + self.current_step)
 ).strftime("%Y-%m-%d")
+        self.current_date_dt = self.start_date + timedelta(days=self.history_length + self.current_step)
         
         # Initialize portfolio
         self.portfolio = Portfolio(self.initial_cash)
@@ -163,7 +164,7 @@ class OptionTradingEnv(gym.Env):
         # Calculate initial portfolio value to track performance
         self.initial_portfolio_value = self.portfolio.get_portfolio_value(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         # Get the initial observation
@@ -207,7 +208,7 @@ class OptionTradingEnv(gym.Env):
         # 2. Get portfolio information
         portfolio_summary = self.portfolio.get_portfolio_summary(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         cash = portfolio_summary["Cash"]
@@ -269,7 +270,7 @@ class OptionTradingEnv(gym.Env):
         # 3) Gather helpful info
         portfolio_summary = self.portfolio.get_portfolio_summary(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         date_index = self.history_length + self.current_step
         current_price = self.price_simulator.simulated_prices[date_index]
@@ -281,7 +282,7 @@ class OptionTradingEnv(gym.Env):
         # Determine actual amount based on the action type
         portfolio_summary = self.portfolio.get_portfolio_summary(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         if action_type == 0:
@@ -305,7 +306,7 @@ class OptionTradingEnv(gym.Env):
         elif action_type == 3:
             # (BUY CALL)
             # we can guess how many call contracts we can afford
-            call_price = self.price_simulator.black_scholes_call(strike_price, 30)
+            call_price = self.price_simulator.black_scholes_call(strike_price+1, 30, current_price, self.current_date_dt)
             # If your portfolio logic uses 1 contract = 100 shares, multiply by 100
             cost_per_contract = call_price * 100
             max_contracts = 0
@@ -324,7 +325,7 @@ class OptionTradingEnv(gym.Env):
         
         elif action_type == 5:
             # (BUY PUT)
-            put_price = self.price_simulator.black_scholes_put(strike_price, 30)
+            put_price = self.price_simulator.black_scholes_put(strike_price-1, 30, current_price, self.current_date_dt)
             cost_per_contract = put_price * 100
             max_contracts = 0
             if cost_per_contract > 0:
@@ -357,8 +358,10 @@ class OptionTradingEnv(gym.Env):
         # Record portfolio value before action
         portfolio_value_before = self.portfolio.get_portfolio_value(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
+
+        self.portfolio.sell_options_expiring_tomorrow(self.price_simulator, self.current_date_dt)
         
         # # Execute action
         # success = False
@@ -385,7 +388,7 @@ class OptionTradingEnv(gym.Env):
             if shares_to_buy > 0:
                 success = self.portfolio.buy_stock(
                     self.price_simulator, 
-                    self.current_date, 
+                    self.current_date_dt, 
                     shares_to_buy
                 )
                 
@@ -394,16 +397,17 @@ class OptionTradingEnv(gym.Env):
             if shares_to_sell > 0:
                 success = self.portfolio.sell_stock(
                     self.price_simulator, 
-                    self.current_date, 
+                    self.current_date_dt, 
                     shares_to_sell
                 )
         
         elif command == "BUY_OPTION":
             opt_type, strike, maturity_dt, qty = data
-            if qty > 0:
+            if qty > 0 and maturity_dt > self.current_date_dt:
+                print("Buying option", opt_type, strike, maturity_dt, qty, "at", self.current_date_dt)
                 success = self.portfolio.buy_option(
                     self.price_simulator,
-                    self.current_date,
+                    self.current_date_dt,
                     opt_type,
                     strike,
                     maturity_dt,
@@ -412,10 +416,11 @@ class OptionTradingEnv(gym.Env):
         
         elif command == "SELL_OPTION":
             opt_type, strike, maturity_dt, qty = data
-            if qty > 0:
+            if qty > 0 and maturity_dt > self.current_date_dt:
+                print("Selling option", opt_type, strike, maturity_dt, qty, "at", self.current_date_dt)
                 success = self.portfolio.sell_option(
                     self.price_simulator,
-                    self.current_date,
+                    self.current_date_dt,
                     opt_type,
                     strike,
                     maturity_dt,
@@ -428,12 +433,13 @@ class OptionTradingEnv(gym.Env):
         # self.current_date += timedelta(days=1)
         self.current_date = (
     self.start_date + timedelta(days=self.history_length + self.current_step)).strftime("%Y-%m-%d")
+        self.current_date_dt = self.start_date + timedelta(days=self.history_length + self.current_step)
 
         
         # Get portfolio value after action
         portfolio_value_after = self.portfolio.get_portfolio_value(
             self.price_simulator, 
-            self.current_date
+            self.current_date_dt
         )
         
         # Calculate reward (change in portfolio value)
@@ -477,7 +483,7 @@ class OptionTradingEnv(gym.Env):
         """
         portfolio_summary = self.portfolio.get_portfolio_summary(
                 self.price_simulator, 
-                self.current_date
+                self.current_date_dt
             )
         current_price = self.price_simulator.simulated_prices[self.history_length + self.current_step]
             
@@ -506,37 +512,3 @@ class OptionTradingEnv(gym.Env):
         """
         pass
 
-
-# Example usage with a basic random agent
-if __name__ == "__main__":
-    # Create the environment
-    env = StockTradingEnv(
-        initial_cash=10000.0,
-        initial_stock_price=100.0,
-        mu=0.1,
-        sigma=0.2,
-        max_steps=100,
-        render_mode="human"
-    )
-    
-    # Reset the environment
-    observation, info = env.reset(seed=42)
-    
-    # Run a simple random agent
-    total_reward = 0
-    for _ in range(100):
-        # Sample a random action
-        action = env.action_space.sample()
-        
-        # Take the action in the environment
-        observation, reward, terminated, truncated, info = env.step(action)
-        total_reward += reward
-        
-        # Render the environment
-        env.render()
-        
-        if terminated or truncated:
-            print(f"Episode finished with total reward: {total_reward}")
-            break
-    
-    env.close()
