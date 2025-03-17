@@ -37,7 +37,7 @@ class Portfolio:
         
         # Get the stock price for the current date
         try:
-            date_str = current_date.strftime("%Y-%m-%d")
+            date_str = current_date
             date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
@@ -127,7 +127,7 @@ class Portfolio:
             
         # Get the stock price for the current date
         try:
-            date_str = current_date.strftime("%Y-%m-%d")
+            date_str = current_date
             date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
@@ -183,7 +183,7 @@ class Portfolio:
         
         # Get the stock price for the current date
         try:
-            date_str = current_date.strftime("%Y-%m-%d")
+            date_str = current_date
             date_index = price_simulator.dates.index(date_str)
             stock_price = price_simulator.simulated_prices[date_index]
         except (ValueError, IndexError):
@@ -409,7 +409,7 @@ class Portfolio:
         put_option_quantity = 0
         if stock_quantity > 0:
             try:
-                date_str = current_date.strftime("%Y-%m-%d")
+                date_str = current_date
                 date_index = price_simulator.dates.index(date_str)
                 stock_price = price_simulator.simulated_prices[date_index]
                 holdings.append({
