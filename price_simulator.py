@@ -35,51 +35,31 @@ class PriceSimulator:
         self.dates = None
         
     def simulate_path(self, days, num_simulations=1, seed=None):
-        """
-        Simulate stock price path using Geometric Brownian Motion.
-        
-        Parameters:
-        days (int): Number of days to simulate
-        num_simulations (int): Number of simulation paths
-        seed (int): Random seed for reproducibility
-        
-        Returns:
-        numpy.ndarray: Simulated price paths of shape (days+1, num_simulations)
-        """
         if seed is not None:
             np.random.seed(seed)
             
-        # Daily parameters
         dt = 1/252  # Trading days in a year
         daily_drift = self.mu * dt
         daily_vol = self.sigma * np.sqrt(dt)
         
-        # Generate random shocks
         Z = np.random.normal(0, 1, size=(days, num_simulations))
         
-        # Initialize price array (including the initial price)
         prices = np.zeros((days + 1, num_simulations))
         prices[0] = self.initial_price
         
-        # Simulate paths
         for t in range(1, days + 1):
             prices[t] = prices[t-1] * np.exp(daily_drift - 0.5 * daily_vol**2 + daily_vol * Z[t-1])
         
         self.simulated_paths = prices
         
-        # Create dates (assuming we start from today)
         start_date = datetime.now()
         self.dates = [(start_date + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days + 1)]
         
-        # Store the mean path as the simulated price series
         self.simulated_prices = pd.Series(prices.mean(axis=1), index=self.dates)
         
         return prices
     
     def get_price_dataframe(self):
-        """
-        Returns a DataFrame with dates and simulated prices.
-        """
         if self.simulated_prices is None:
             raise ValueError("Run simulate_path first")
             
@@ -114,19 +94,6 @@ class PriceSimulator:
         return plt
     
     def black_scholes_call(self, strike, maturity_days, current_price=None, current_date=None):
-        """
-        Calculate Black-Scholes price for a call option.
-        
-        Parameters:
-        strike (float): Strike price
-        maturity_days (int): Days until option maturity from time 0, or remaining days if current_date is provided
-        current_price (float, optional): Current stock price (uses initial price if None)
-        current_date (datetime, optional): Current date for calculating remaining time to maturity
-        
-        Returns:
-        float: Call option price
-        """
-
         if current_price is None or current_date is None:
             raise ValueError("Provide current_price and current_date")
 
@@ -169,18 +136,6 @@ class PriceSimulator:
         return call_price
     
     def black_scholes_put(self, strike, maturity_days, current_price=None, current_date=None):
-        """
-        Calculate Black-Scholes price for a put option.
-        
-        Parameters:
-        strike (float): Strike price
-        maturity_days (int): Days until option maturity from time 0, or remaining days if current_date is provided
-        current_price (float, optional): Current stock price (uses initial price if None)
-        current_date (datetime, optional): Current date for calculating remaining time to maturity
-        
-        Returns:
-        float: Put option price
-        """
         if self.simulated_prices is None and current_price is None:
             raise ValueError("Run simulate_path first or provide current_price")
             
