@@ -49,7 +49,7 @@ class Portfolio:
         # Calculate options value
         options_value = 0
         for asset_id, quantity in self.current_holdings.items():
-            if asset_id != "STOCK" and quantity > 0:
+            if asset_id != "STOCK":
                 option_type, strike, maturity = self._parse_option_id(asset_id)
                 
                 # Calculate days to maturity
@@ -532,7 +532,7 @@ class Portfolio:
         
         # Add options holdings
         for asset_id, quantity in self.current_holdings.items():
-            if asset_id != "STOCK" and quantity > 0:
+            if asset_id != "STOCK":
                 option_type, strike, maturity = self._parse_option_id(asset_id)
                 
                 # Calculate days to maturity

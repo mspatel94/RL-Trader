@@ -316,7 +316,6 @@ class StockTradingEnv(gym.Env):
         self.current_step += 1
         # self.current_date += timedelta(days=1)
         self.current_date = (self.start_date + timedelta(days=self.history_length + self.current_step)).strftime("%Y-%m-%d")
-        print(f"{self.current_date} -> current date")
         self.current_date_dt = self.start_date + timedelta(days=self.history_length + self.current_step)
         
         # Get portfolio value after action

@@ -226,6 +226,9 @@ class OptionTradingEnv(gym.Env):
             total_value / self.initial_portfolio_value
         ])
         
+        print(f"stock_value: {stock_value} Options value: {options_value} total_value: {total_value}")
+        print(f"portfolio_summary: {portfolio_summary}")
+
         # 3. Current holdings
         stock_quantity = portfolio_summary["Stock Quantity"]
         normalized_holdings = np.array([stock_quantity * current_price / self.initial_portfolio_value])
@@ -444,6 +447,8 @@ class OptionTradingEnv(gym.Env):
             self.current_date_dt
         )
         
+        
+
         # Calculate reward (change in portfolio value)
         reward = (portfolio_value_after - portfolio_value_before) / portfolio_value_before
         

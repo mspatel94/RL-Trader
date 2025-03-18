@@ -3,9 +3,13 @@ import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 from stockenv import StockTradingEnv
 from optionsenv import OptionTradingEnv
+from coveredcallenv import CoveredCallTradingEnv
 from actor_critic_model import ActorCritic
 import seaborn as sns
 import pandas as pd
+
+
+ENV_TO_USE = OptionTradingEnv
 
 
 def random_policy(state, action_dim=2):
@@ -51,7 +55,7 @@ def compare_policies(steps=1000):
         'initial_cash': 10000.0,
         'initial_stock_price': 100,
         'mu': 0.1,
-        'sigma': 0.02,
+        'sigma': 0.3,
         'risk_free_rate': 0.03,
         'max_steps': 252,  
         'history_length': 30
@@ -61,7 +65,7 @@ def compare_policies(steps=1000):
         'initial_cash': 10000.0,
         'initial_stock_price': 100,
         'mu': 0.1,
-        'sigma': 0.02,
+        'sigma': 0.3,
         'risk_free_rate': 0.03,
         'max_steps': 252,  # One trading year
         'history_length': 30
@@ -69,7 +73,7 @@ def compare_policies(steps=1000):
 
     
     # Create environment
-    env = StockTradingEnv(**train_env_params)
+    env = ENV_TO_USE(**train_env_params)
     state_dim = env.observation_space.shape[0]
     action_dim = env.observation_space.shape[0]
     
@@ -111,11 +115,11 @@ def compare_policies(steps=1000):
     
     results = {}
     for name, policy in policies.items():
-        test_env = StockTradingEnv(**test_env_params)
+        test_env = ENV_TO_USE(**test_env_params)
         mean_return, std_return = evaluate_policy(test_env, policy, num_episodes=100)
         results[name] = {'mean': mean_return, 'std': std_return}
 
-    test_env = StockTradingEnv(**test_env_params)
+    test_env = ENV_TO_USE(**test_env_params)
     obs = test_env.reset()
     obs=obs[0]
     for i in range(500):
@@ -195,12 +199,12 @@ def analyze_ppo_sensitivity(ppo, max_steps=1000):
     # Test different seeds
     print("Testing different seeds...")
     for seed in seeds:
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=0.2)
+        env = ENV_TO_USE(**base_params, mu=0.1, sigma=0.2)
         # ppo = PPO("MlpPolicy", env, verbose=1, seed=seed)
         # ppo.learn(total_timesteps=50000)
         mean_return, _ = evaluate_policy(env, ppo)
         seed_results.append(mean_return)
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=0.2)
+        env = ENV_TO_USE(**base_params, mu=0.1, sigma=0.2)
         # mean_return, _ = evaluate_policy(env, ppo_lstm)
         # lstm_seed_results.append(mean_return)
 
@@ -208,24 +212,24 @@ def analyze_ppo_sensitivity(ppo, max_steps=1000):
     # Test different mus
     print("Testing different drift rates (mu)...")
     for mu in mus:
-        env = StockTradingEnv(**base_params, mu=mu, sigma=0.2)
+        env = ENV_TO_USE(**base_params, mu=mu, sigma=0.2)
         # ppo = PPO("MlpPolicy", env, verbose=1)
         # ppo.learn(total_timesteps=50000)
         mean_return, _ = evaluate_policy(env, ppo)
         mu_results.append(mean_return)
-        env = StockTradingEnv(**base_params, mu=mu, sigma=0.2)
+        env = ENV_TO_USE(**base_params, mu=mu, sigma=0.2)
         # mean_return, _ = evaluate_policy(env, ppo_lstm)
         # lstm_mu_results.append(mean_return)
     
     # Test different sigmas
     print("Testing different volatilities (sigma)...")
     for sigma in sigmas:
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=sigma)
+        env = ENV_TO_USE(**base_params, mu=0.1, sigma=sigma)
         ppo = PPO("MlpPolicy", env, verbose=1)
         ppo.learn(total_timesteps=50000)
         mean_return, _ = evaluate_policy(env, ppo)
         sigma_results.append(mean_return)
-        env = StockTradingEnv(**base_params, mu=0.1, sigma=sigma)
+        env = ENV_TO_USE(**base_params, mu=0.1, sigma=sigma)
         # mean_return, _ = evaluate_policy(env, ppo_lstm)
         # lstm_sigma_results.append(mean_return)
     
@@ -283,7 +287,7 @@ def analyze_ppo_sensitivity(ppo, max_steps=1000):
 if __name__ == "__main__":
     print("Comparing policies...")
     
-    ppo =     compare_policies(steps=100000)
+    ppo =     compare_policies(steps=40000)
     
     # print("Analyzing PPO sensitivity...")
     # analyze_ppo_sensitivity(ppo, 20000)
