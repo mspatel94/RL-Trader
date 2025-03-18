@@ -126,24 +126,33 @@ class PriceSimulator:
         Returns:
         float: Call option price
         """
+
+        if current_price is None or current_date is None:
+            raise ValueError("Provide current_price and current_date")
+
+        if strike is None or maturity_days is None or strike==0 or maturity_days==0:
+            raise ValueError("Provide strike and maturity_days")
+
         if self.simulated_prices is None and current_price is None:
             raise ValueError("Run simulate_path first or provide current_price")
-            
+        
         # Current stock price (S)
-        S = current_price if current_price is not None else self.simulated_prices[0]
+        S = current_price
         
         # Strike price (K)
         K = strike
         
         # Time to maturity in years
         if current_date is not None:
-            start_date = datetime.now()
-            maturity_date = start_date + timedelta(days=maturity_days)
+            maturity_date = current_date + timedelta(days=maturity_days)
             remaining_days = (maturity_date - current_date).days
-            tau = max(0, remaining_days) / 252  # Ensure non-negative
+            tau = max(0, remaining_days) / 252.0  # Ensure non-negative
         else:
-            tau = maturity_days / 252
+            tau = maturity_days / 252.0
         
+        if tau <= 0:
+            raise ValueError("Time to maturity is negative")
+
         # Risk-free rate (r)
         r = self.risk_free_rate
         
@@ -180,11 +189,12 @@ class PriceSimulator:
         
         # Strike price (K)
         K = strike
+
+        print(f"Strike: {strike}, Maturity: {maturity_days}, Current Price: {current_price}, Current Date: {current_date}")
         
         # Time to maturity in years
         if current_date is not None:
-            start_date = datetime.now()
-            maturity_date = start_date + timedelta(days=maturity_days)
+            maturity_date = current_date + timedelta(days=maturity_days)
             remaining_days = (maturity_date - current_date).days
             tau = max(0, remaining_days) / 252  # Ensure non-negative
         else:
@@ -195,6 +205,9 @@ class PriceSimulator:
         
         # Volatility (σ)
         sigma = self.sigma
+        
+        if tau <= 0:
+            raise ValueError("Time to maturity is negative")
         
         # Black-Scholes formula components
         d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * tau) / (sigma * np.sqrt(tau))
