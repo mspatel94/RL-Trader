@@ -22,11 +22,8 @@ if __name__=="__main__":
     cash = 1000
     env = StockTradingEnv(cash,starting_price,mu, sigma, risk_free_rate, horizon, history_length=30, render_mode='human')
 
-    # model = PPO("MlpPolicy", env, verbose=1)
-    # model.learn(total_timesteps=100000, log_interval=10)
-
-    model = RecurrentPPO("MlpLstmPolicy", env, verbose=1)
-    model.learn(100000)
+    model = PPO("MlpPolicy", env, verbose=1)
+    model.learn(total_timesteps=100000, log_interval=10)
 
     model_env = model.get_env()
     obs = model_env.reset()
